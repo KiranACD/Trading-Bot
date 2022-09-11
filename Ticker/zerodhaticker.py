@@ -13,6 +13,7 @@ class ZerodhaTicker(BaseTicker):
     broker_handle = None
     ticker = None
     listeners = []
+    token_to_trading_symbol_map = {}
 
     @staticmethod
     def get_instance():
@@ -27,7 +28,7 @@ class ZerodhaTicker(BaseTicker):
             ZerodhaTicker.__instance = self
         super().__init__('ZerodhaTicker')
 
-    def start_ticker(self, uid):
+    def start_ticker(self):
         try:
             uid = BrokerController.broker_ticker_uid['zerodha']
         except Exception as e:
@@ -58,13 +59,15 @@ class ZerodhaTicker(BaseTicker):
         tokens = []
         trading_symbols = []
         for symbol in symbols:
-            token = Instruments.convert_symbol_to_zerodha_subscription_format(symbol)
-            if token is None:
+            symbol['broker'] = 'zerodha'
+            zerodha_symbol = Instruments.change_symbol_to_broker_format(symbol)
+            if not zerodha_symbol:
                 logging.info(f'Token not found for symbol: {symbol}')
                 trading_symbols.append(None)
                 continue
+            token = zerodha_symbol['token']
             tokens.append(token)
-            trading_symbol = Instruments.get_zerodha_trading_symbol(token=token)
+            trading_symbol = zerodha_symbol['trading_symbol']
             trading_symbols.append(trading_symbol)
         self.ticker.subscribe(tokens)
         logging.info(f'Registered: {trading_symbols}')
@@ -74,14 +77,17 @@ class ZerodhaTicker(BaseTicker):
         tokens = []
         trading_symbols = []
         for symbol in symbols:
-            token = Instruments.convert_symbol_to_zerodha_subscription_format(symbol)
-            if token is None:
+            symbol['broker'] = 'zerodha'
+            zerodha_symbol = Instruments.change_symbol_to_broker_format(symbol)
+            if not zerodha_symbol:
                 logging.info(f'Token not found for symbol: {symbol}')
                 trading_symbols.append(None)
                 continue
+            token = zerodha_symbol['token']
             tokens.append(token)
-            trading_symbol = Instruments.get_zerodha_trading_symbol(token=token)
+            trading_symbol = zerodha_symbol['trading_symbol']
             trading_symbols.append(trading_symbol)
+            ZerodhaTicker.token_to_trading_symbol_map[token] = trading_symbol
         self.ticker.unsubscribe(tokens)
         logging.info(f'Unregistered: {trading_symbols}')
         return trading_symbols
@@ -89,7 +95,7 @@ class ZerodhaTicker(BaseTicker):
     def on_ticks(self, ws, broker_ticks):
         ticks = []
         for tick in broker_ticks:
-            trading_symbol = Instruments.get_zerodha_trading_symbol(token=tick['instrument_token'])
+            trading_symbol = ZerodhaTicker.token_to_trading_symbol_map[tick['instrument_token']]
             if trading_symbol:
                 # t = datetime.datetime.now()
                 # t = (time.mktime(t.timetuple()))

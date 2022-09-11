@@ -2,6 +2,7 @@ import logging
 import time
 import datetime
 import configparser
+from Instruments.instruments import Instruments
 
 from Models.producttype import ZerodhaProductType, FyersProductType
 from Models.quote import Quote
@@ -48,6 +49,7 @@ class BaseStrategy:
         self.max_trades_per_day = cfg[name]['max_trades_per_day']
         self.num_trades = 0
         self.is_fno = cfg[name]['is_fno']
+        self.move_sl_to_cost = bool(int(cfg[name]['move_sl_to_cost']))
         
         return cfg
 
@@ -69,12 +71,16 @@ class BaseStrategy:
         capital_per_trade = int(self.capital * leverage / self.max_trades_per_day)
         return capital_per_trade
     
-    def calculate_lots_per_trade(self):
-        if not self.is_fno:
-            return 0
-        return [cap//self.capital_per_set for cap in self.capital]
+    def calculate_lots_per_trade(self, user, trade):
+        capital = user.strategy_capital_map[trade.strategy]*user.capital
+        lots = capital//self.capital_per_set
+        self.lot_size = Instruments.get_lot_size(trade.trading_symbol, user.uid)
+        return lots*self.lot_size
         
-    
+    def get_quantity(self, user, trade):
+        if self.is_fno:
+            return self.calculate_lots_per_trade(user, trade)
+
     def can_trade_today(self):
         '''
         Derived class should override the logic if strategy to be traded only on specific days...
@@ -93,8 +99,6 @@ class BaseStrategy:
         if is_market_closed_for_day():
             logging.warn('%s: Not going to run strategy as market is closed.', self.get_name())
             return
-        
-        self.process()
 
         now = datetime.datetime.now()
         if now < get_market_start_time():
@@ -141,4 +145,11 @@ class BaseStrategy:
             TradeManager.disable_trade(trade, 'MaxTradesPerDayReached')
             return False
         return True
+    
+    def add_trade_to_list(self, trade):
+        if trade:
+            self.trades.append(trade)
+    
+    def should_move_sl_to_cost(self):
+        return self.move_sl_to_cost
     

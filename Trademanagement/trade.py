@@ -14,6 +14,7 @@ class Trade:
         self.product_type = '' # CNC/MIS. Depends onn broker
         self.is_futures = False # futures trade
         self.is_options = False # options trade
+        self.straddle_id = None # straddle id. This will be the same for CE and PE leg of a straddle.
         self.option_type = None # CE/PE
         self.is_curency = False
         self.is_commodity = False
@@ -25,6 +26,7 @@ class Trade:
         self.filled_quantity = 0 # in case of partial fill, this will not be equal to quantity
         self.initial_stoploss = 0 # initial stoploss
         self.stoploss = 0 # current stoploss. In case of trailing stoploss, this will be different from initial stoploss.
+        self.max_loss = 0 # max mtm loss
         self.target = 0 # target is applicable
         self.cmp = 0 # last traded price
 
@@ -60,6 +62,8 @@ class Trade:
         if self.quantity != trade.quantity:
             return False
         if self.timestamp != trade.timestamp:
+            return False
+        if self.uid != trade.uid:
             return False
         return True
     

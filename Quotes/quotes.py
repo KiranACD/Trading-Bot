@@ -23,6 +23,14 @@ class Quotes:
             quote = Quote(trading_symbol)
             quote = Quotes.fill_zerodha_quote(quote, broker_quote)
             return quote
+        elif broker == 'jugaadtrader':
+            broker_handle = BrokerController.get_broker_handle_uid(uid)
+            key = f'NFO:{trading_symbol}'
+            quote_response = broker_handle.quote(key)
+            broker_quote = quote_response[key]
+            quote = Quote(trading_symbol)
+            quote = Quotes.fill_zerodha_quote(quote, broker_quote)
+            return quote
     
     @staticmethod
     def get_equity_quote(symbol, uid):
@@ -95,7 +103,7 @@ class Quotes:
         quote.high = ohlc['high']
         quote.low = ohlc['low']
         quote.close = ohlc['close']
-        quote.change = ohlc['net_change']
+        quote.change = broker_quote['net_change']
         quote.oi_day_high = broker_quote['oi_day_high']
         quote.oi_day_low = broker_quote['oi_day_low']
         quote.lower_circuit_limit = broker_quote['lower_circuit_limit']

@@ -68,6 +68,7 @@ class NiftyShortStraddleISL920(BaseStrategy):
         for lots, uid in zip(num_lots, self.uids):
             trade = Trade(symbol)
             trade.strategy = self.get_name()
+            trade.uid = uid
             trade.is_options = True
             trade.direction = Direction.SHORT
             trade.product_type = self.product_type
@@ -76,7 +77,7 @@ class NiftyShortStraddleISL920(BaseStrategy):
             trade.timestamp = get_epoch(self.start_timestamp)
 
             lot_size = Instruments.get_lot_size(uid)
-            trade.quantity = lot_size*num_lots
+            trade.quantity = lot_size*lots
 
             sl_amount = trade.requested_entry*self.call_sl_percent if option_type == "CE" else trade.requested_entry*self.put_sl_percent
             trade.stoploss = trade.requested_entry + sl_amount

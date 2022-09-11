@@ -52,14 +52,16 @@ class ZerodhaLogin:
         cfg['access_token_date'] = str(datetime.datetime.today().date())
         cfg['access_token'] = access_token
 
-        cfg['broker_handle'] = kite
+        # cfg['broker_handle'] = kite
 
-        return cfg
+        # return cfg
+        return kite
     
     def set_broker_handle(uid):
 
         api_key = uid['api_key']
         kite = KiteConnect(api_key=api_key)
         kite.set_access_token(uid['access_token'])
-        uid['broker_handle'] = kite
-        return uid
+        # uid['broker_handle'] = kite
+        # return uid
+        return kite

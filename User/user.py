@@ -1,6 +1,4 @@
-import configparser
 from BrokerController.brokercontroller import BrokerController
-from Utils import path, filesystem
 
 class User:
     '''
@@ -15,20 +13,25 @@ class User:
         self.login()
 
     def get_user_details(self):
-        self.broker = self.cfg[self.uid]['broker']
-        self.user_id = self.cfg[self.uid]['user_id']
-        self.password = self.cfg[self.uid]['password']
-        self.totp = self.cfg[self.uid]['totp']
+        self.broker = self.uid['broker']
+        self.user_id = self.uid['account_username']
 
     def login(self):
         BrokerController.handle_broker_login(self.uid)
-        self.broker_handle = BrokerController.broker_uid_handle_map[self.uid['uid']]
+        self.get_user_details()
+        self.broker_handle = BrokerController.brokerhandle_uid_details_map[self.uid['uid']]
     
     def test_broker_handle(self):
-
         if self.broker == 'zerodha':
             try:
-                self.broker_handle.profile()
+                print(self.broker_handle.profile())
                 return True
             except:
                 return False
+        elif self.broker == 'jugaadtrader':
+            try:
+                print(self.broker_handle.ltp('NSE:MARUTI'))
+                return True
+            except:
+                return False
+

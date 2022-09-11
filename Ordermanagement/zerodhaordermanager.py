@@ -2,19 +2,17 @@ import logging
 
 from Ordermanagement.baseordermanager import BaseOrderManager
 from Ordermanagement.order import Order
-
-from Models.producttype import ProductType
+from Models.producttype import ZerodhaProductType
 from Models.ordertype import OrderType
 from Models.direction import Direction
 from Models.orderstatus import OrderStatus
-
-from Utils.utils import Utils
+from Utils.utils import get_epoch
 
 class ZerodhaOrderManager(BaseOrderManager):
     def __init__(self, broker_handle):
         super().__init__("zerodha", broker_handle)
 
-    def placeOrder(self, orderinputparams):
+    def place_order(self, orderinputparams):
         logging.info('%s: Going to place order with params %s', self.broker, orderinputparams)
         kite = self.broker_handle
         try:
@@ -28,18 +26,17 @@ class ZerodhaOrderManager(BaseOrderManager):
             trigger_price=orderinputparams.trigger_price,
             product=self.convertToBrokerProductType(orderinputparams.product_type),
             order_type=self.convertToBrokerOrderType(orderinputparams.order_type))
-
             logging.info('%s: Order placed successfully, orderId = %s', self.broker, order_id)
             order = Order(orderinputparams)
             order.order_id = order_id
-            order.orderplacetimestamp = Utils.getEpoch()
-            order.lastorderupdatetimestamp = Utils.getEpoch()
+            order.orderplacetimestamp = get_epoch()
+            order.lastorderupdatetimestamp = get_epoch()
             return order
         except Exception as e:
             logging.info('%s Order placement failed: %s', self.broker, str(e))
             raise Exception(str(e))
 
-    def modifyOrder(self, order, ordermodifyparams):
+    def modify_order(self, order, ordermodifyparams):
         logging.info('%s: Going to modify order with params %s', self.broker, ordermodifyparams)
         kite = self.broker_handle
         try:
@@ -52,13 +49,13 @@ class ZerodhaOrderManager(BaseOrderManager):
             order_type=ordermodifyparams.new_order_type if ordermodifyparams.new_order_type != None else None)
 
             logging.info('%s Order modified successfully for orderId = %s', self.broker, order_id)
-            order.lastorderupdatetimestamp = Utils.getEpoch()
+            order.lastorderupdatetimestamp = get_epoch()
             return order
         except Exception as e:
             logging.info('%s Order modify failed: %s', self.broker, str(e))
             raise Exception(str(e))
 
-    def modifyOrderToMarket(self, order):
+    def modify_order_to_market(self, order):
         logging.info('%s: Going to modify order with params %s', self.broker)
         kite = self.broker_handle
         try:
@@ -68,13 +65,13 @@ class ZerodhaOrderManager(BaseOrderManager):
             order_type=kite.ORDER_TYPE_MARKET)
 
             logging.info('%s Order modified successfully to MARKET for orderId = %s', self.broker, order_id)
-            order.lastorderupdatetimestamp = Utils.getEpoch()
+            order.lastorderupdatetimestamp = get_epoch()
             return order
         except Exception as e:
             logging.info('%s Order modify to market failed: %s', self.broker, str(e))
             raise Exception(str(e))
 
-    def cancelOrder(self, order):
+    def cancel_order(self, order):
         logging.info('%s Going to cancel order %s', self.broker, order.order_id)
         kite = self.broker_handle
         try:
@@ -83,13 +80,13 @@ class ZerodhaOrderManager(BaseOrderManager):
             order_id=order.order_id)
 
             logging.info('%s Order cancelled successfully, orderId = %s', self.broker, order_id)
-            order.lastorderupdatetimestamp = Utils.getEpoch()
+            order.lastorderupdatetimestamp = get_epoch()
             return order
         except Exception as e:
             logging.info('%s Order cancel failed: %s', self.broker, str(e))
             raise Exception(str(e))
 
-    def fetchAndUpdateAllOrderDetails(self, orders):
+    def fetch_and_update_all_order_details(self, orders):
         logging.info('%s Going to fetch order book', self.broker)
         kite = self.broker_handle
         order_book = None
@@ -127,11 +124,11 @@ class ZerodhaOrderManager(BaseOrderManager):
 
     def convertToBrokerProductType(self, product_type):
         kite = self.broker_handle
-        if product_type == ProductType.MIS:
+        if product_type == ZerodhaProductType.MIS:
             return kite.PRODUCT_MIS
-        elif product_type == ProductType.NRML:
+        elif product_type == ZerodhaProductType.NRML:
             return kite.PRODUCT_NRML
-        elif product_type == ProductType.CNC:
+        elif product_type == ZerodhaProductType.CNC:
             return kite.PRODUCT_CNC
         return None 
 

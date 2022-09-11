@@ -8,15 +8,18 @@ from collections import defaultdict
 # from Config.config import getserverconfig
 # from core.Controller import Controller - This will not be required
 from User.user import User
+from User.userdecoder import UserDecoder
 from BrokerController.brokercontroller import BrokerController
 from Ticker.zerodhaticker import ZerodhaTicker
 from Ticker.fyersticker import FyersTicker
+from Ticker.zerodhaquoteticker import ZerodhaQuoteTicker
 from Trademanagement.trade import Trade
 from Trademanagement.tradeexitreason import TradeExitReason
 from Trademanagement.tradeencoder import TradeEncoder
 from Trademanagement.tradestate import TradeState
 from Ordermanagement.zerodhaordermanager import ZerodhaOrderManager
-from Ordermanagement.orderinputparams import OrderInputParams
+from Ordermanagement.papertrademanager import PaperTradeManager
+from Ordermanagement.orderinputparams import ZerodhaOrderInputParams
 from Ordermanagement.ordermodifyparams import OrderModifyParams
 from Ordermanagement.order import Order
 from Models.ordertype import OrderType
@@ -25,8 +28,8 @@ from Models.direction import Direction
 from Instruments.instruments import Instruments
 from Quotes.quotes import Quotes
 
-from Utils import utils
-from Config import config
+from Utils.utils import get_epoch, is_today_holiday, is_market_closed_for_day, wait_till_market_opens, get_today_date_str, calculate_trade_pnl
+from Config.config import get_users, get_server_config, write_json
 
 class TradeManager:
     ticker = None
@@ -36,21 +39,22 @@ class TradeManager:
     symbol_to_cmp_map = {}
     intraday_trades_dir = None
     registered_symbols = []
+    uid_order_manager__map = {}
 
     @staticmethod
     def run():
-        if utils.is_today_holiday():
+        if is_today_holiday():
             logging.info('Cannot start Trademanager as today is trading holiday')
             return
         
-        if utils.is_market_closed_for_the_day():
+        if is_market_closed_for_day():
             logging.info('Cannot start Trademanager as market is closed for the day.')
             return
         
         # Register the users in the trademanager
-        users_uid = config.get_users()
+        users_uid = get_users(UserDecoder)
         for uid in users_uid:
-            user_obj = User(uid)
+            user_obj = User(users_uid[uid])
             # Test each user object to check if login is a success. Make a profile call.
             if user_obj.test_broker_handle():
                 TradeManager.users.append(user_obj)
@@ -61,23 +65,24 @@ class TradeManager:
         for broker in BrokerController.brokers:
             Instruments.fetch_instruments(broker)
             
-        utils.wait_till_market_opens('Trade Manager')
+        wait_till_market_opens('Trade Manager')
 
-        server_config = config.get_server_config()
+        server_config = get_server_config()
         trades_dir = os.path.join(server_config['root'], 'trades')
-        TradeManager.intraday_trades_dir = os.path.join(trades_dir, utils.get_today_date_str())
-        if os.path.exists(TradeManager.intraday_trades_dir) is False:
+        TradeManager.intraday_trades_dir = os.path.join(trades_dir, get_today_date_str())
+        if not os.path.exists(TradeManager.intraday_trades_dir):
             logging.info('TradeManager: Intraday trades directory %s does not exist. Hence going to create.', TradeManager.intraday_trades_dir)
             os.makedirs(TradeManager.intraday_trades_dir)
 
-        ticker_broker_name = config.get_server_config()['ticker_broker']
+        ticker_broker_name = server_config['ticker_broker']
         if ticker_broker_name == 'zerodha':
-            TradeManager.ticker = ZerodhaTicker()
+            TradeManager.ticker = ZerodhaTicker().get_instance()
         elif ticker_broker_name == 'fyers':
-            TradeManager.ticker = FyersTicker()
+            TradeManager.ticker = FyersTicker().get_instance()
+        elif ticker_broker_name == 'jugaadtrader':
+            TradeManager.ticker = ZerodhaQuoteTicker().get_instance()
         
-        ticker_uid = BrokerController.get_ticker_broker_uid(ticker_broker_name)
-        TradeManager.ticker.start_ticker(ticker_uid)
+        TradeManager.ticker.start_ticker()
         TradeManager.ticker.register_listener(TradeManager.ticker_listener)
 
         time.sleep(5)
@@ -85,7 +90,7 @@ class TradeManager:
         TradeManager.load_all_trades_from_file()
 
         while True:
-            if utils.is_market_closed_for_day():
+            if is_market_closed_for_day():
                 logging.info('TradeManager: Stopping TradeManager as market closed.')
                 break
             
@@ -111,7 +116,7 @@ class TradeManager:
             logging.warn('TradeManager: Trades filepath %s does not exist', trades_file_path)
             return
         TradeManager.trades = []
-        config.rea
+
         with open(trades_file_path, 'r') as tfile:
             trades_data = json.loads(tfile)
         
@@ -128,7 +133,7 @@ class TradeManager:
     @staticmethod
     def save_all_trades_to_file():
         trades_file_path = os.path.join(TradeManager.intraday_trades_dir, 'trades.json')
-        config.write_json(TradeManager.trades, trades_file_path, cls=TradeEncoder)
+        write_json(TradeManager.trades, trades_file_path, cls=TradeEncoder)
         logging.info('TradeManager: Saved %d trades to file %s', len(TradeManager.trades), trades_file_path)
     
     @staticmethod
@@ -159,29 +164,35 @@ class TradeManager:
     def ticker_listener(tick):
         TradeManager.symbol_to_cmp_map[tick.trading_symbol] = tick.last_traded_price
         for strategy in TradeManager.strategy_to_instance_map:
-            long_trade = TradeManager.get_untriggered_trade(tick.trading_symbol, strategy, Direction.LONG)
-            short_trade = TradeManager.get_untriggered_trade(tick.trading_symbol, strategy, Direction.SHORT)
-            if long_trade is None and short_trade is None:
-                continue
-            strategy_instance = TradeManager.strategy_to_instance_map[strategy]
-            if long_trade:
-                if strategy_instance.should_place_trade(long_trade, tick):
-                    is_success = TradeManager.execute_trade(long_trade)
-                    if is_success:
-                        long_trade.tradestate = TradeState.ACTIVE
-                        long_trade.start_timestamp = utils.get_epoch()
-                        continue
+            for user in TradeManager.users:
+                uid = user.uid
+                long_trade = TradeManager.get_untriggered_trade(tick.trading_symbol, strategy, Direction.LONG, uid)
+                short_trade = TradeManager.get_untriggered_trade(tick.trading_symbol, strategy, Direction.SHORT, uid)
+                if long_trade is None and short_trade is None:
+                    continue
+                strategy_instance = TradeManager.strategy_to_instance_map[strategy]
+                if long_trade:
+                    if strategy_instance.should_place_trade(long_trade, tick):
+                        long_trade.quantity = strategy_instance.get_quantity(user, long_trade)
+                        long_trade.uid = user.uid
+                        is_success = TradeManager.execute_trade(long_trade)
+                        if is_success:
+                            long_trade.tradestate = TradeState.ACTIVE
+                            long_trade.start_timestamp = get_epoch()
+                    continue
             
-            if short_trade:
-                if strategy_instance.should_place_trade(short_trade, tick):
-                    is_sucess = TradeManager.execute_trade(short_trade)
-                    if is_success:
-                        short_trade.tradestate = TradeState.ACTIVE
-                        short_trade.start_timestamp = utils.get_epoch()
-                        continue
+                if short_trade:
+                    if strategy_instance.should_place_trade(short_trade, tick):
+                        short_trade.quantity = strategy_instance.get_quantity(user, short_trade)
+                        short_trade.uid = user.uid
+                        is_success = TradeManager.execute_trade(short_trade)
+                        if is_success:
+                            short_trade.tradestate = TradeState.ACTIVE
+                            short_trade.start_timestamp = get_epoch()
+                    continue
     
     @staticmethod
-    def get_untriggered_trade(trading_symbol, strategy, direction):
+    def get_untriggered_trade(trading_symbol, strategy, direction, uid):
         trade = None
         for tr in TradeManager.trades:
             if tr.tradestate == TradeState.DISABLED:
@@ -194,6 +205,8 @@ class TradeManager:
                 continue
             if tr.direction != direction:
                 continue
+            if tr.uid != uid:
+                continue
             trade = tr
             break
         return trade
@@ -202,12 +215,14 @@ class TradeManager:
     def execute_trade(trade):
         logging.info('TradeManager: Execute trade called for %s', trade)
         trade.initial_stoploss = trade.stoploss
-        oip = OrderInputParams(trade.trading_symbol)
+        if trade['broker'] == 'jugaadtrader' or trade['broker'] == 'zerodha':
+            oip = ZerodhaOrderInputParams(trade.trading_symbol)
         oip.direction = trade.direction
         oip.product_type = trade.product_type
         oip.order_type = OrderType.MARKET if trade.place_market_order is True else OrderType.LIMIT
         oip.price = trade.requested_entry
         oip.quantity = trade.quantity
+        oip.order_ = 'entry_order'
         if trade.is_futures is True or trade.is_options is True:
             oip.is_fno = True
         try:
@@ -242,9 +257,25 @@ class TradeManager:
                 TradeManager.track_sl_order(trade)
                 TradeManager.track_target_order(trade)
                 if trade.intraday_squareoff_timestamp:
-                    now_epoch = utils.get_epoch()
+                    now_epoch = get_epoch()
                     if now_epoch >= trade.intraday_squareoff_timestamp:
                         TradeManager.squareoff_trade(trade, TradeExitReason.SQUARE_OFF)
+                        continue
+                if trade.max_loss:
+                    if trade.straddle_id:
+                        strategy_instance = TradeManager.strategy_to_instance_map[trade.strategy]
+                        complement_trade = None
+                        for tr in strategy_instance.straddle[trade.straddle_id]:
+                            if tr.trade_id != trade.trade_id:
+                                complement_trade = tr
+                                break
+                        straddle_pnl = trade.pnl + complement_trade.pnl
+                        if straddle_pnl <= strategy_instance.max_loss:
+                            TradeManager.squareoff_trade(trade, TradeExitReason.MAX_LOSS)
+                            TradeManager.squareoff_trade(complement_trade, TradeExitReason.MAX_LOSS)
+
+                    if trade.pnl <= trade.max_loss:
+                        TradeManager.squareoff_trade(trade, TradeExitReason.MAX_LOSS)
     
     @staticmethod
     def track_entry_order(trade):
@@ -258,7 +289,7 @@ class TradeManager:
         if trade.filled_quantity > 0:
             trade.entry = trade.entry_order.average_price
         trade.cmp = TradeManager.symbol_to_cmp_map[trade.trading_symbol]
-        utils.calculate_trade_pnl(trade)
+        calculate_trade_pnl(trade)
     
     @staticmethod
     def track_sl_order(trade):
@@ -273,6 +304,9 @@ class TradeManager:
                 exit = trade.sl_order.average_price
                 exit_reason = TradeExitReason.SL_HIT if trade.initial_stoploss == trade.stoploss else TradeExitReason.TRAIL_SL_HIT
                 TradeManager.set_trade_to_complete(trade, exit, exit_reason)
+                strategy_instance = TradeManager.strategy_to_instance_map[trade.strategy]
+                if strategy_instance.move_sl_to_cost:
+                    TradeManager.check_and_update_complement_trade_sl(trade)
                 TradeManager.cancel_target_order(trade)
             
             elif trade.sl_order.order_status == OrderStatus.CANCELLED:
@@ -284,6 +318,36 @@ class TradeManager:
             else:
                 TradeManager.check_and_update_trailsl(trade)
     
+    @staticmethod
+    def check_and_update_complement_trade_sl(trade):
+        strategy_instance = TradeManager.strategy_to_instance_map[trade.strategy]
+        complement_trade = None
+        for tr in strategy_instance.straddle[trade.straddle_id]:
+            if tr.trade_id != trade.trade_id:
+                complement_trade = tr
+                break
+        if not complement_trade:
+            logging.error(f'Could not find complement trade for trade with details {trade}')
+            return
+        if complement_trade.tradestate != TradeState.ACTIVE:
+            logging.info(f'Complement trade with details {complement_trade} is not active.')
+            return
+        if not complement_trade.sl_order:
+            logging.error(f'Stop loss order for trade {complement_trade} not yet placed')
+            return
+        if complement_trade.sl_order.order_status != OrderStatus.OPEN:
+            logging.info(f'Complement trade with details {complement_trade} sl order status is not open: {complement_trade.sl_order}')
+            return
+        omp = OrderModifyParams()
+        omp.new_trigger_price = complement_trade.entry
+        try:
+            old_sl = complement_trade.stoploss
+            TradeManager.get_order_manager(complement_trade.uid).modify_order(complement_trade.sl_order, omp)
+            logging.info('TradeManager: Move SL to Cost: Successfully modified stoploss from %f to %f for tradeID: %s', old_sl, complement_trade.average_price, complement_trade.trade_id)
+            complement_trade.stoploss = complement_trade.average_price
+        except Exception as e:
+            logging.error('TradeManager: Failed to move SL to cost for tradeID %s orderID %s: Error => %s', complement_trade.trade_id, complement_trade.sl_order, str(e))
+                    
     @staticmethod
     def check_and_update_trailsl(trade):
         strategy_instance = TradeManager.strategy_to_instance_map[trade.strategy]
@@ -328,12 +392,14 @@ class TradeManager:
     
     @staticmethod
     def place_sl_order(trade):
-        oip = OrderInputParams(trade.trading_symbol)
+        if trade['broker'] == 'jugaadtrader' or trade['broker'] == 'zerodha':
+            oip = ZerodhaOrderInputParams(trade.trading_symbol)
         oip.direction = Direction.SHORT if trade.direction == Direction.LONG else Direction.LONG
         oip.product_type = trade.product_type
         oip.order_type = OrderType.SL_MARKET
         oip.trigger_price = trade.stoploss
         oip.quantity = trade.quantity
+        oip.order_ = 'sl_order'
         if trade.is_futures is True or trade.is_options is True:
             oip.is_fno = True
         try:
@@ -346,12 +412,14 @@ class TradeManager:
     
     @staticmethod
     def place_target_order(trade, is_market_order=False):
-        oip = OrderInputParams(trade.trading_symbol)
+        if trade['broker'] == 'jugaadtrader' or trade['broker'] == 'zerodha':
+            oip = ZerodhaOrderInputParams(trade.trading_symbol)
         oip.direction = Direction.SHORT if trade.direction == Direction.LONG else Direction.LONG
         oip.product_type = trade.product_type
         oip.order_type = OrderType.MARKET if is_market_order == True else OrderType.LIMIT
         oip.price = 0 if is_market_order is True else trade.target
         oip.quantity = trade.quantity
+        oip.order_ = 'target_order'
         if trade.is_futures is True or trade.is_options is True:
             oip.is_fno = True
         try:
@@ -403,8 +471,8 @@ class TradeManager:
         trade.tradestate = TradeState.COMPLETED
         trade.exit = exit
         trade.exitreason = exit_reason if trade.exitreason is None else trade.exitreason
-        trade.end_timestamp = utils.get_epoch()
-        trade = utils.calculate_trade_pnl(trade)
+        trade.end_timestamp = get_epoch()
+        trade = calculate_trade_pnl(trade)
         logging.info('TradeManager: setTradeToComplete strategy = %s, symbol = %s, qty = %d, entry = %f, exit = %f, pnl = %f, exit_reason = %s', trade.strategy, trade.trading_symbol, trade.filled_quantity, trade.entry, trade.exit, trade.pnl, trade.exitreason)
     
     @staticmethod
@@ -416,7 +484,7 @@ class TradeManager:
         if trade.entry_order:
             if trade.entry_order.order_status == OrderStatus.OPEN:
                 TradeManager.cancel_entry_order(trade)
-        if trade.sl_order:
+        if trade.sl_order and trade.sl_order.order_status == OrderStatus.OPEN:
             TradeManager.cancel_sl_order(trade)
         if trade.target_order:
             logging.info('TradeManager: changing target order %s to MARKET to exit position for tradeID %s', trade.target_order.order_id, trade.trade_id)
@@ -427,7 +495,16 @@ class TradeManager:
     
     @staticmethod
     def get_order_manager(uid):
-        return BrokerController.get_order_manager(uid)
+        if uid in TradeManager.uid_order_manager_map:
+            return TradeManager.uid_order_manager_map[uid]
+        uid_details = BrokerController.uid_uid_details_map[uid]
+        if uid_details['name'] == 'zerodha':
+            if not uid_details['paper_trade']:
+                order_manager = ZerodhaOrderManager(uid_details['broker_handle'])
+            else:
+                order_manager = PaperTradeManager(uid_details['broker_handle'])
+            TradeManager.uid_order_manager_map[uid] = order_manager
+            return order_manager
     
     @staticmethod
     def get_number_of_trades_placed_by_strategy(strategy):

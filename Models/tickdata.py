@@ -27,3 +27,6 @@ class TickData:
         self.low = data['ohlc']['low']
         self.close = data['ohlc']['close']
         self.change = data['change']
+    
+    def __str__(self):
+        return 'Trading Symbol: ' + self.tradingSymbol + ', LTP: ' + str(self.last_traded_price)

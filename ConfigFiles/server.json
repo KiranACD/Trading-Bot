@@ -1,4 +1,7 @@
 {
-    "root":"",
-    "ticker_broker":""
+    "root":"ConfigFiles/",
+    "logfiledir":"LogFileDir/",
+    "users_file":"ConfigFiles/users.json",
+    "ticker_broker":"jugaadtrader",
+    "historical_broker":"jugaadtrader"
 }

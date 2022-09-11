@@ -11,6 +11,7 @@ from Strategies.basestrategy import BaseStrategy
 from Utils.utils import get_epoch, round_to_nse_price
 from Trademanagement.trademanager import TradeManager
 from Trademanagement.trade import Trade
+from Trademanagement.tradestate import TradeState
 
 class NiftyShortStraddleISL920(BaseStrategy):
     __instance = None
@@ -41,6 +42,7 @@ class NiftyShortStraddleISL920(BaseStrategy):
         self.call_target_percent = cfg[name]['call_target_percent']
         self.put_target_percent = cfg[name]['put_target_percent']
         self.days_to_trade = cfg[name]['days_to_trade'].replace(' ', '').split(',')
+        self.rentry_time = datetime.datetime.strptime(cfg[name]['rentry_time'], '%H:%M:%S')
         self.straddle = defaultdict(list)
     
     def process(self):
@@ -49,15 +51,25 @@ class NiftyShortStraddleISL920(BaseStrategy):
             return
         if self.num_trades >= self.max_trades_per_day:
             return
-        ce_symbol, pe_symbol = NiftyShortStraddle.get_straddle_combination()
-        logging.info('%s: ATMCESymbol: %s, ATMPESymbol: %s', self.get_name(), ce_symbol, pe_symbol)
-        self.generate_trades(ce_symbol, pe_symbol)
+        if self.num_trades < 1:
+            ce_symbol, pe_symbol = NiftyShortStraddle.get_straddle_combination()
+            logging.info('%s: ATMCESymbol: %s, ATMPESymbol: %s', self.get_name(), ce_symbol, pe_symbol)
+            self.generate_trades(ce_symbol, pe_symbol)
+        elif self.num_trades < self.max_trades_per_day and now < self.rentry_time:
+            for trade in self.trades:
+                if trade.tradestatus != TradeState.COMPLETED:
+                    return
+            ce_symbol, pe_symbol = NiftyShortStraddle.get_straddle_combination()
+            logging.info('%s: ATMCESymbol: %s, ATMPESymbol: %s', self.get_name(), ce_symbol, pe_symbol)
+            self.generate_trades(ce_symbol, pe_symbol)
+            
+
     
     def generate_trades(self, ce_symbol, pe_symbol):
         # num_lots = self.calculate_lots_per_trade()
         straddle_combo_price = NiftyShortStraddle.get_straddle_combo_price(ce_symbol, pe_symbol)
         if not straddle_combo_price:
-            logging.error('%s: Could not generate trades', self.get_name())
+            logging.error('%s: Could not get straddle combo price for symbols %s, %s', self.get_name(), ce_symbol, pe_symbol)
             return
         ce_price = straddle_combo_price[0]
         pe_price = straddle_combo_price[1]
@@ -65,6 +77,7 @@ class NiftyShortStraddleISL920(BaseStrategy):
         self.generate_trade(ce_symbol, ce_price, 'CE', straddle_id)
         self.generate_trade(pe_symbol, pe_price, 'PE', straddle_id)
         logging.info('%s: Trades generated.', self.get_name())
+        self.num_trades += 1
     
     def generate_trade(self, symbol, ltp, option_type, straddle_id):
 
@@ -98,11 +111,3 @@ class NiftyShortStraddleISL920(BaseStrategy):
         if not super().should_place_trade(trade, tick):
             return False
         return True
-
-
-
-
-    
-
-
-        

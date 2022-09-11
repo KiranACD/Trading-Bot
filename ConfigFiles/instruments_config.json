@@ -1,0 +1,18 @@
+{
+  "zerodha": {
+    "last_date_updated": "2022-08-24",
+    "location": "ConfigFiles/zerodha_instruments.pickle"
+  },
+  "xts": {
+    "last_date_updated": "2022-08-24",
+    "location": "ConfigFiles/xts_instruments.pickle"
+  },
+  "jugaadtrader": {
+    "last_date_updated": "2022-09-10",
+    "location": "ConfigFiles/jugaadtrader_instruments.pickle"
+  },
+  "fyers": {
+    "last_date_updated": "2022-08-24",
+    "location": "ConfigFiles/jugaadtrader_instruments.pickle"
+  }
+}
