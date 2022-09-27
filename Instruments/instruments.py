@@ -116,11 +116,6 @@ class Instruments:
         except Exception as e:
             logging.exception(f'Exception while fetching instruments from broker: {e}')
             return False
-    
-    @staticmethod
-    def change_symbol_to_broker_format(symbol):
-        if symbol['broker'] == 'zerodha':
-            return Instruments.change_symbol_to_zerodha_format(symbol)
 
     @staticmethod
     def change_symbol_to_zerodha_format(symbol):
@@ -146,6 +141,14 @@ class Instruments:
             logging.exception(f'Zerodha instument token not found due to: {e}')
             return {}
     
+    @staticmethod
+    def get_ticker_subscription_format(symbol, uid):
+        uid_details = BrokerController.uid_uid_details_map[uid]
+        if uid_details['broker'] == 'zerodha':
+            return Instruments.change_symbol_to_zerodha_format(symbol)
+        elif uid_details['broker'] == 'jugaadtrader':
+            return Instruments.get_jugaadtrader_trading_symbol(symbol=symbol)
+
     @staticmethod
     def get_trading_symbol(symbol, uid):
         uid_details = BrokerController.uid_uid_details_map[uid]
@@ -186,7 +189,7 @@ class Instruments:
             try:
                 return inst['tradingsymbol'].iloc[0]
             except Exception as e:
-                logging.exception(f'Zerodha trading symbol not found due to: {e}')
+                logging.exception(f'Zerodha trading symbol for token {token} not found due to: {e}')
                 return None
         
         if symbol:
@@ -199,14 +202,16 @@ class Instruments:
                         (df['strike'] == symbol['strike'])]['tradingsymbol'].iloc[0]
                 return tradingsymbol
             except Exception as e:
-                logging.exception(f'Zerodha trading symbol not found due to: {e}')
+                logging.exception(f'Zerodha trading symbol symbol dict {symbol} not found due to: {e}')
                 return None
     
     @staticmethod
     def get_lot_size(symbol, uid):
-        uid_details = BrokerController.broker_uid_details_map[uid]
+        uid_details = BrokerController.uid_uid_details_map[uid]
         if uid_details['broker'] == 'zerodha':
             return Instruments.get_zerodha_lot_size(symbol)
+        elif uid_details['broker'] == 'jugaadtrader':
+            return Instruments.get_jugaadtrader_lot_size(symbol)
     
     @staticmethod
     def get_zerodha_lot_size(symbol):
@@ -218,10 +223,28 @@ class Instruments:
             return 0
     
     @staticmethod
+    def get_jugaadtrader_lot_size(symbol):
+        df = Instruments.instruments_list['jugaadtrader']
+        try:
+            return df[df['tradingsymbol']==symbol]['lot_size'].iloc[0]
+        except Exception as e:
+            logging.exception(f'Jugaadtrader lot size not found for symbol: {symbol} due to: {e}')
+            return 0
+    
+    @staticmethod
     def get_zerodha_instrument_token(symbol):
         df = Instruments.instruments_list['zerodha']
         try:
-            return df[df['tradingsymbo']==symbol]['instrumet_token'].iloc[0]
+            return df[df['tradingsymbo']==symbol]['instrument_token'].iloc[0]
+        except Exception as e:
+            logging.exception(f'Zerodha instrument token not found for symbol: {symbol} due to: {e}')
+            return None
+    
+    @staticmethod
+    def get_jugaadtrader_instrument_token(symbol):
+        df = Instruments.instruments_list['jugaadtrader']
+        try:
+            return df[df['tradingsymbol']==symbol]['instrument_token'].iloc[0]
         except Exception as e:
             logging.exception(f'Zerodha instrument token not found for symbol: {symbol} due to: {e}')
             return None

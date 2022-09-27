@@ -6,8 +6,9 @@ class UserDecoder(JSONDecoder):
     def object_hook(self, dct):
         for uid in dct:
             try:
+                dct[uid]['paper_trade'] = int(dct[uid]['paper_trade'])
                 dct[uid]['ticker'] = int(dct[uid]['ticker'])
-                dct[uid]['historical_data'] = int(dct[uid]['ticker'])
+                dct[uid]['historical_data'] = int(dct[uid]['historical_data'])
             except:
                 continue
         return dct

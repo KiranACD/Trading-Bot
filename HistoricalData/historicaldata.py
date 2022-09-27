@@ -10,7 +10,7 @@ class HistoricalData:
     broker_handle = None
 
     @staticmethod
-    def get_historical_data_uid(symbol, from_date, to_date, timeframe):
+    def get_historical_data(symbol, from_date, to_date, timeframe):
 
         if HistoricalData.broker is None:
             HistoricalData.get_historical_broker()
@@ -23,8 +23,20 @@ class HistoricalData:
         else:
             trading_symbol = symbol
 
-        if HistoricalData.broker == 'zerodha' or HistoricalData.broker == 'jugaadtrader':
+        if HistoricalData.broker == 'zerodha':
             token = Instruments.get_zerodha_instrument_token(symbol)
+            if token is None:
+                logging.error(f'Could get historical data for symbol {symbol} due to failed token retrieval')
+                return
+            try:
+                data = pd.DataFrame(HistoricalData.broker_handle.historical_data(token, from_date, to_date, timeframe))
+                return data
+            except Exception as e:
+                logging.error(f'Could not get historical data for symbol {symbol} from broker {HistoricalData.broker}')
+                return None
+        
+        elif HistoricalData.broker == 'jugaadtrader':
+            token = Instruments.get_jugaadtrader_instrument_token(symbol)
             if token is None:
                 logging.error(f'Could get historical data for symbol {symbol} due to failed token retrieval')
                 return

@@ -55,23 +55,21 @@ class ZerodhaTicker(BaseTicker):
         logging.info('ZerodhaTicker: stopping...')
         self.ticker.close(1000, 'Manual close')
     
-    def register_symbols(self, symbols):
+    def register_symbols(self, symbols, uid):
         tokens = []
         trading_symbols = []
         for symbol in symbols:
             symbol['broker'] = 'zerodha'
-            zerodha_symbol = Instruments.change_symbol_to_broker_format(symbol)
+            zerodha_symbol = Instruments.get_trading_symbol(symbol, uid)
             if not zerodha_symbol:
                 logging.info(f'Token not found for symbol: {symbol}')
                 trading_symbols.append(None)
                 continue
             token = zerodha_symbol['token']
             tokens.append(token)
-            trading_symbol = zerodha_symbol['trading_symbol']
-            trading_symbols.append(trading_symbol)
+            trading_symbols.append(zerodha_symbol['trading_symbol'])
         self.ticker.subscribe(tokens)
         logging.info(f'Registered: {trading_symbols}')
-        return trading_symbols
     
     def unregister_symbols(self, symbols):
         tokens = []

@@ -13,21 +13,21 @@ from Trademanagement.trademanager import TradeManager
 from Trademanagement.trade import Trade
 from Trademanagement.tradestate import TradeState
 
-class NiftyShortStraddleISL920(BaseStrategy):
+class NiftyShortStraddleISL920rentry1330(BaseStrategy):
     __instance = None
 
     @staticmethod
     def get_instance():
-        if NiftyShortStraddleISL920.__instance is None:
-            return NiftyShortStraddleISL920()
-        return NiftyShortStraddleISL920.__instance
+        if NiftyShortStraddleISL920rentry1330.__instance is None:
+            return NiftyShortStraddleISL920rentry1330()
+        return NiftyShortStraddleISL920rentry1330.__instance
     
     def __init__(self):
-        if NiftyShortStraddleISL920.__instance:
+        if NiftyShortStraddleISL920rentry1330.__instance:
             raise Exception('This class is a singleton!')
         else:
-            NiftyShortStraddleISL920.__instance = self
-        super().__init__('ShortStraddleISL920')
+            NiftyShortStraddleISL920rentry1330.__instance = self
+        super().__init__('NiftyShortStraddleISL920rentry1330')
 
     def get_strategy_config(self):
         cfg = super().get_strategy_config()

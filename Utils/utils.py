@@ -5,6 +5,8 @@ import uuid
 import calendar
 import math
 from Instruments.instruments import Instruments
+from Models.direction import Direction
+from Trademanagement.tradestate import TradeState
 from Config.config import get_holidays
 
 dateformat = '%Y-%m-%d'
@@ -50,7 +52,7 @@ def get_market_start_time(datetimeobj=None):
     return get_time_of_day(9, 15, 0, datetimeobj)
 
 def get_market_end_time(datetimeobj=None):
-    return get_time_of_day(23, 30, 0, datetimeobj)
+    return get_time_of_day(23, 55, 0, datetimeobj)
 
 def get_time_of_day(hours, minutes, seconds, datetimeobj=None):
     if datetimeobj is None:
@@ -72,8 +74,26 @@ def wait_till_market_opens(context):
         logging.info('%s: Waiting for %d seconds till market opens...', context, wait_seconds)
         time.sleep(wait_seconds)
 
+def round_off(price):
+    return round(price, 2)
+
 def calculate_trade_pnl(trade):
-    pass
+    if trade.tradestate == TradeState.ACTIVE:
+        if trade.cmp > 0:
+            if trade.direction == Direction.LONG:
+                trade.pnl = round_off(trade.filled_quantity * (trade.cmp - trade.entry))
+            else:
+                trade.pnl = round_off(trade.filled_quantity * (trade.entry - trade.cmp))
+    else:
+        if trade.exit > 0:
+            if trade.direction == Direction.LONG:
+                trade.pnl = round_off(trade.filled_quantity * (trade.exit - trade.entry))
+            else:
+                trade.pnl = round_off(trade.filled_quantity * (trade.entry - trade.exit))
+    trade_value = trade.entry * trade.filled_quantity
+    if trade_value > 0:
+        trade.pnl_percentage = round_off(trade.pnl * 100/trade_value)
+    return trade
 
 def round_to_nse_price(price):
     x = round(price, 2) * 20

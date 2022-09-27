@@ -2,6 +2,7 @@ import logging
 import threading
 import datetime
 import time
+from xmlrpc.client import Boolean
 from Ticker.baseticker import BaseTicker
 from BrokerController.brokercontroller import BrokerController
 from Instruments.instruments import Instruments
@@ -35,21 +36,22 @@ class ZerodhaQuoteTicker(BaseTicker):
     
     def register_symbols(self, symbols, uid):
         for symbol in symbols:
-            trading_symbol = Instruments.get_trading_symbol(symbol, uid)
-            if trading_symbol is None:
+            trading_symbol = Instruments.get_ticker_subscription_format(symbol, uid)
+            if not trading_symbol:
                 logging.info(f'Trading symbol not found for symbol: {symbol}')
                 continue
             trading_symbol = symbol['exchange'] + ':' + trading_symbol
             ZerodhaQuoteTicker.ticker_list.append(trading_symbol)
+            logging.info(f'Registered: {trading_symbol}')
 
     def start_ticker(self):
         try:
-            uid = BrokerController.broker_ticker_uid['jugaadtrader']
+            self.uid = BrokerController.broker_ticker_uid['jugaadtrader']
         except Exception as e:
             logging.exception(f'Not logged into jugaadtrader ticker account due to: {str(e)}')
             return
         
-        self.broker_handle = BrokerController.get_broker_handle_uid(uid)
+        self.broker_handle = BrokerController.get_broker_handle_uid(self.uid)
         ZerodhaQuoteTicker.stop_ticker_ = 0
         
         logging.info('Going to start ZerodhaQuoteTicker...')
@@ -74,10 +76,12 @@ class ZerodhaQuoteTicker(BaseTicker):
 
             try:
                 data = self.broker_handle.ltp(ZerodhaQuoteTicker.ticker_list)
-                print(data)
+                # print(data)
             except Exception as e:
                 logging.exception('Unable to pull data from Zerodha through Jugaadtrader')
                 time.sleep(1)
+                uid_details = BrokerController.get_uid_details_uid(self.uid)
+                BrokerController.handle_broker_login(uid_details)
                 continue
             
             price_data_dict = {}            
@@ -95,9 +99,9 @@ class ZerodhaQuoteTicker(BaseTicker):
                 time.sleep(1)
                 continue
             
-            # self.on_new_ticks(ticks)
-            for tick in ticks:
-                print(tick)
+            self.on_new_ticks(ticks)
+            # for tick in ticks:
+            #     print(tick)
             old_price_data_dict = price_data_dict
             time.sleep(1)
 

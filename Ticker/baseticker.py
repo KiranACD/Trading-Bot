@@ -1,4 +1,5 @@
 import logging
+import threading
 
 class BaseTicker:
 
@@ -26,7 +27,9 @@ class BaseTicker:
         for tick in ticks:
             for listener in self.tick_listeners:
                 try:
-                    listener(tick)
+                    tl = threading.Thread(target=listener, args=(tick,))
+                    tl.start()
+                    # listener(tick)
                 except Exception as e:
                     logging.error('BaseTicker: Exception from listener callback function. Error => %s', str(e))
     

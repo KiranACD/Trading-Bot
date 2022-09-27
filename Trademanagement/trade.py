@@ -7,6 +7,9 @@ class Trade:
         self.exchange = ''
         self.trade_id = utils.generate_trade_id() # unique trade id.
         self.trading_symbol = trading_symbol
+        self.ticker_symbol_dict = None
+        self.underlying = None
+        self.underlying_price = 0
         self.broker = '' # name of broker in which strategy has to be executed
         self.uid = '' # user id to which orders have to be sent
         self.strategy = '' # name of strategy that generates the trade
@@ -19,7 +22,8 @@ class Trade:
         self.is_curency = False
         self.is_commodity = False
         self.place_market_order = False # when you place entry order with market order type
-        self.intraday_square_off_timestamp = None # strategy specific squareoff time
+        self.place_target_market_order = False
+        self.intraday_squareoff_timestamp = None # strategy specific squareoff time
         self.requested_entry = 0 # requested entry price
         self.entry = 0 # actual entry. This will be traded price at entry
         self.quantity = 0 # requested quantity
@@ -28,6 +32,8 @@ class Trade:
         self.stoploss = 0 # current stoploss. In case of trailing stoploss, this will be different from initial stoploss.
         self.max_loss = 0 # max mtm loss
         self.target = 0 # target is applicable
+        self.partial_exit_price = 0 # where partial exit is applicable
+        self.partial_exit_quantity = 0
         self.cmp = 0 # last traded price
 
         self.tradestate = TradeState.CREATED # state of the trade
@@ -43,6 +49,7 @@ class Trade:
         self.entry_order = None # object of type Order
         self.sl_order = None # object of type Order
         self.target_order = None # object of type Order
+        self.partial_exit_order = None # object of type Order
     
     def equals(self, trade):
         if trade is None:
@@ -68,10 +75,12 @@ class Trade:
         return True
     
     def __str__(self):
-        return "ID = " + str(self.trade_id) + ", state = " + self.tradestate + ", symbol = " + \
-               self.trading_symbol + ", strategy = " + self.strategy + ", direction = " + self.direction + \
-               ", product_type = " + self.product_type + ", reqEntry = ", str(self.requested_entry) + \
-                ", stoploss = " + str(self.stoploss) + ", target = " + str(self.target) \
-               + ", entry = " + str(self.entry) + ", exit = " + str(self.exit) \
-               + ", profitloss = " + str(self.pnl)
+        return "strategy = " + self.strategy + ", ID = " + str(self.trade_id) + ", state = " + self.tradestate + ", symbol = " + \
+               self.trading_symbol + ", quantity = " + str(self.quantity)
+               
+            #     + ", direction = " + self.direction + \
+            #    ", product_type = " + self.product_type + ", reqEntry = ", str(self.requested_entry) + \
+            #     ", stoploss = " + str(self.stoploss) + ", target = " + str(self.target) \
+            #    + ", entry = " + str(self.entry) + ", exit = " + str(self.exit) \
+            #    + ", profitloss = " + str(self.pnl)
     

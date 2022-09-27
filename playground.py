@@ -1,17 +1,20 @@
-from fileinput import filename
-import os
 import logging
-import datetime
-from User.user import User
-from User.userdecoder import UserDecoder
-from BrokerController.brokercontroller import BrokerController
-from Instruments.instruments import Instruments
+# import datetime
+import threading
+import time
+# from User.user import User
+# from User.userdecoder import UserDecoder
+# from BrokerController.brokercontroller import BrokerController
+# from Instruments.instruments import Instruments
+# 
+# from Ticker.zerodhaquoteticker import ZerodhaQuoteTicker
 from Strategies.niftyshortstraddle import NiftyShortStraddle
-from Ticker.zerodhaquoteticker import ZerodhaQuoteTicker
-# from Trademanagement.trademanager import TradeManager
+from Strategies.niftyshortstraddleISL920 import NiftyShortStraddleISL920
+from Strategies.bankniftyshortstraddle import BankniftyShortStraddle
+from Strategies.bankniftystraddleadjust import BankniftyStraddleAdjust
+from Trademanagement.trademanager import TradeManager
 # from Ticker.zerodhaquoteticker import ZerodhaQuoteTicker
 # from Ordermanagement.zerodhaordermanager import ZerodhaOrderManager
-# from Ordermanagement.papertrademanager import PaperTradeManager
 from Config.config import get_users, get_server_config
 
 # path1 = 'ConfigFiles/'
@@ -31,28 +34,43 @@ log_file_dir = server_config['logfiledir']
 
 init_logging(log_file_dir + '/app.log')
 
-users_uid = get_users(UserDecoder)
-for uid in users_uid:
-    user_obj = User(users_uid[uid])
-    # Test each user object to check if login is a success. Make a profile call.
-    if user_obj.test_broker_handle():
-        continue
-    else:
-        logging.info(f'{user_obj.uid} not logged in.')
-        continue
+# NiftyShortStraddle.init_service()
+# NiftyShortStraddleISL920.get_instance().run()
 
-for broker in BrokerController.brokers:
-    Instruments.fetch_instruments(broker)
+logging.info('Starting Algo...')
+tm = threading.Thread(target=TradeManager.run)
+tm.start()
 
-print(Instruments.instruments_list.keys())
+time.sleep(5)
 NiftyShortStraddle.init_service()
+BankniftyShortStraddle.init_service()
 
-ticker = ZerodhaQuoteTicker().get_instance()
-ticker.start_ticker()
-ticker.register_symbols([NiftyShortStraddle.FUT_SYMBOL_DICT], NiftyShortStraddle.config['uid'])
+threading.Thread(target=NiftyShortStraddleISL920.get_instance().run).start()
+threading.Thread(target=BankniftyStraddleAdjust.get_instance().run).start()
 
-now = datetime.datetime.now()
-while (datetime.datetime.now() - now).seconds < 100:
-    continue
-ticker.stop_ticker()
+
+# users_uid = get_users(UserDecoder)
+# for uid in users_uid:
+#     user_obj = User(users_uid[uid])
+#     # Test each user object to check if login is a success. Make a profile call.
+#     if user_obj.test_broker_handle():
+#         continue
+#     else:
+#         logging.info(f'{user_obj.uid} not logged in.')
+#         continue
+
+# for broker in BrokerController.brokers:
+#     Instruments.fetch_instruments(broker)
+
+# print(Instruments.instruments_list.keys())
+# NiftyShortStraddle.init_service()
+
+# ticker = ZerodhaQuoteTicker().get_instance()
+# ticker.start_ticker()
+# ticker.register_symbols(NiftyShortStraddle.symbol_dict_list, NiftyShortStraddle.config['uid'])
+
+# now = datetime.datetime.now()
+# while (datetime.datetime.now() - now).seconds < 100:
+#     continue
+# ticker.stop_ticker()
 

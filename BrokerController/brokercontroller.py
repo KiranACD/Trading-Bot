@@ -70,7 +70,7 @@ class BrokerController:
     @staticmethod
     def get_historical_broker_uid(broker):
         if broker == 'zerodha' and broker in BrokerController.broker_historical_uid:
-            uid_id = BrokerController.broker_ticker_uid[broker]
+            uid_id = BrokerController.broker_historical_uid[broker]
             return uid_id
         elif broker == 'jugaadtrader' and broker in BrokerController.broker_historical_uid:
             uid_id = BrokerController.broker_historical_uid[broker]
@@ -97,6 +97,10 @@ class BrokerController:
     @staticmethod
     def get_broker_name_uid(uid):
         return BrokerController.uid_uid_details_map[uid]['broker']
+    
+    @staticmethod
+    def get_uid_details_uid(uid):
+        return BrokerController.uid_uid_details_map[uid]
     
     @staticmethod
     def save_user_details_to_json(uid):

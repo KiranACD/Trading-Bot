@@ -1,5 +1,7 @@
 import logging
 import math
+import time
+import datetime
 
 from Quotes.quotes import Quotes
 from Instruments.instruments import Instruments
@@ -38,10 +40,25 @@ class NiftyShortStraddle:
         NiftyShortStraddle.base = int(NiftyShortStraddle.config['base'])
         NiftyShortStraddle.number_of_strikes = int(NiftyShortStraddle.config['number_of_strikes'])
         uid = NiftyShortStraddle.config['uid']
-        expiry = get_expiry('NIFTY', 'current', 'FUT')
-        symbol = NiftyShortStraddle.get_symbol_dict('NIFTY', 'FUT', 0, expiry, 'NFO')
-        NiftyShortStraddle.FUT_SYMBOL_DICT = symbol
-        NiftyShortStraddle.FUT_SYMBOL = Instruments.get_trading_symbol(symbol, uid)
+        start = datetime.datetime.now()
+        while True:
+            try:
+                expiry = get_expiry('NIFTY', 'current', 'FUT')
+                symbol = NiftyShortStraddle.get_symbol_dict('NIFTY', 'FUT', 0, expiry, 'NFO')
+                NiftyShortStraddle.FUT_SYMBOL_DICT = symbol
+                NiftyShortStraddle.FUT_SYMBOL = Instruments.get_trading_symbol(symbol, uid)
+                if NiftyShortStraddle.FUT_SYMBOL is None and (datetime.datetime.now() - start).seconds < 300:
+                    continue
+                break
+            except Exception as e:
+                if (datetime.datetime.now() - start).seconds > 300:
+                    break
+                logging.info(f'Instruments not yet available due to ==> {str(e)}')
+                time.sleep(1)
+        if NiftyShortStraddle.FUT_SYMBOL is None:
+            logging.DEBUG('Unable to populate tickers as instruments not available and Futures symbol is none.')
+            return
+        logging.info('Set Nifty Futures Symbol')
         underlying_price = Quotes.get_fno_quote(NiftyShortStraddle.FUT_SYMBOL, uid).last_traded_price
         strikes_list = NiftyShortStraddle.get_strikes_list(underlying_price)
         expiry = get_expiry('NIFTY','current', 'OPT')
@@ -97,30 +114,32 @@ class NiftyShortStraddle:
         expiry = get_expiry('NIFTY', 'current', 'OPT')
 
         premium_lowerbound = 10**9
-        combination_ce_symbol = None
-        combination_pe_symbol = None
         for combination in strike_combinations:
+            ce_symbol_dict = NiftyShortStraddle.get_symbol_dict('NIFTY', 'CE', float(combination[0]), expiry, 'NFO')
+            pe_symbol_dict = NiftyShortStraddle.get_symbol_dict('NIFTY', 'PE', float(combination[1]), expiry, 'NFO')
             if combination[0] not in NiftyShortStraddle.CE_TICKERS:
-                symbol = {'name':'NIFTY', 'instrument_type':'CE', 'strike':float(combination[0]), 'expiry':expiry}
-                ce_symbol = Instruments.get_trading_symbol(symbol, uid)
+                # ce_symbol_dict = {'name':'NIFTY', 'instrument_type':'CE', 'strike':float(combination[0]), 'expiry':expiry}
+                ce_symbol = Instruments.get_trading_symbol(ce_symbol_dict, uid)
             else:
                 ce_symbol = NiftyShortStraddle.CE_TICKERS[combination[0]]
-            if combination[1] not in NiftyShortStraddle.PE_TICKERS:
-                symbol = {'name':'NIFTY', 'instrument_type':'PE', 'strike':float(combination[1]), 'expiry':expiry}
-                pe_symbol = Instruments.get_trading_symbol(symbol, uid)
+            if combination[1] not in NiftyShortStraddle.PE_TICKERS:           
+                pe_symbol = Instruments.get_trading_symbol(pe_symbol_dict, uid)
             else:
                 pe_symbol = NiftyShortStraddle.PE_TICKERS[combination[1]]
-            
+    
             ce_price = Quotes.get_fno_quote(ce_symbol, uid).last_traded_price
             pe_price = Quotes.get_fno_quote(pe_symbol, uid).last_traded_price
 
             premium_diff = round(abs(ce_price - pe_price))
             if premium_diff < premium_lowerbound:
-                combination_ce_symbol = ce_symbol
-                combination_pe_symbol = pe_symbol
+                ce_dict = {'trading_symbol':ce_symbol,
+                           'symbol_dict':ce_symbol_dict}
+                pe_dict = {'trading_symbol':pe_symbol,
+                           'symbol_dict':pe_symbol_dict}
                 premium_lowerbound = premium_diff
             
-            return combination_ce_symbol, combination_pe_symbol
+        straddle_dict = {'ce':ce_dict, 'pe':pe_dict}
+        return straddle_dict
     
     @staticmethod
     def get_straddle_combo_price(ce_symbol=None, pe_symbol=None):

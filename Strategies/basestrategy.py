@@ -6,8 +6,9 @@ from Instruments.instruments import Instruments
 
 from Models.producttype import ZerodhaProductType, FyersProductType
 from Models.quote import Quote
+from Models.direction import Direction
 from Trademanagement.trademanager import TradeManager
-from Utils.utils import wait_till_market_opens, is_market_closed_for_day, get_market_start_time, get_epoch
+from Utils.utils import wait_till_market_opens, is_market_closed_for_day, get_market_start_time, get_epoch, get_time_of_today
 
 class BaseStrategy:
     STRATEGY_CONFIG = None
@@ -15,42 +16,40 @@ class BaseStrategy:
     def __init__(self, name):
         self.name = name
         self.get_strategy_config()
-
-        self.symbols = []
-        self.is_fno = False
-        self.capital_per_set = 0
-        
+        self.symbols = []     
         TradeManager.register_strategy(self)
         self.trades = TradeManager.get_all_trades_by_strategy(self.name)
     
     def get_strategy_config(self):
         if not BaseStrategy.STRATEGY_CONFIG:
             cfg = configparser.ConfigParser()
-            cfg.read('ConfigFiles/strategy.ini')
+            cfg.read('ConfigFiles/strategy_config.ini')
             BaseStrategy.STRATEGY_CONFIG = cfg
         else:
-            cfg = BaseStrategy.STRATEGY_CONFIG   
-
+            cfg = BaseStrategy.STRATEGY_CONFIG
         name = self.get_name()
         self.enabled = cfg[name]['enabled']
-        self.uids = cfg[name]['uids'].replace(' ','').split(',')
         self.product_type = cfg[name]['product_type'] # intraday / positional
         try:
             self.symbols_to_subscribe = cfg[name]['symbols_to_subscribe'].replace(' ', '').split(',')
+            self.symbols_to_subscribe = [symbol for symbol in self.symbols_to_subscribe if symbol]
         except:
             self.symbols_to_subscribe = []
-        self.data_uid = cfg[name]['data_uid']
-        self.start_timestamp = datetime.datetime.strptime(cfg[name]['start_timestamp'], '%H:%M:%S') 
-        self.stop_timestamp = datetime.datetime.strptime(cfg[name]['stop_timestamp'], '%H:%M:%S')
-        self.squareoff_timestamp = datetime.datetime.strptime(cfg[name]['squaroff_timestamp'], '%H:%M:%S')
-        self.capital = cfg[name]['capital'].replace(' ', '').split(',') # Capital allocated to each uid
-        self.capital_per_set = cfg[name]['capital_per_set']
-        self.leverage = cfg[name]['leverage']
-        self.max_trades_per_day = cfg[name]['max_trades_per_day']
+        hour, minute, second = list(map(int, cfg[name]['start_time'].split(':')))#datetime.datetime.strptime(, '%H:%M:%S')
+        self.start_timestamp = get_time_of_today(hour, minute, second)
+        hour, minute, second = list(map(int, cfg[name]['stop_time'].split(':')))#datetime.datetime.strptime(cfg[name]['stop_time'], '%H:%M:%S')
+        self.stop_timestamp = get_time_of_today(hour, minute, second)
+        print(self.start_timestamp)
+        print(self.stop_timestamp)
+        hour, minute, second = list(map(int, cfg[name]['squareoff_time'].split(':')))
+        self.squareoff_timestamp = get_time_of_today(hour, minute, second)#datetime.datetime.strptime(cfg[name]['squareoff_time'], '%H:%M:%S')
+        # self.capital = cfg[name]['capital'] # Capital allocated to each uid
+        self.capital_per_set = float(cfg[name]['capital_per_set'])
+        self.leverage = int(cfg[name]['leverage'])
+        self.max_trades_per_day = int(cfg[name]['max_trades_per_day'])
         self.num_trades = 0
-        self.is_fno = cfg[name]['is_fno']
+        self.is_fno = bool(cfg[name]['is_fno'])
         self.move_sl_to_cost = bool(int(cfg[name]['move_sl_to_cost']))
-        
         return cfg
 
     def get_name(self):
@@ -72,14 +71,22 @@ class BaseStrategy:
         return capital_per_trade
     
     def calculate_lots_per_trade(self, user, trade):
-        capital = user.strategy_capital_map[trade.strategy]*user.capital
-        lots = capital//self.capital_per_set
-        self.lot_size = Instruments.get_lot_size(trade.trading_symbol, user.uid)
-        return lots*self.lot_size
+        if trade.direction == Direction.LONG:
+            capital = user.strategy_capital_map[trade.strategy]*user.capital*self.leverage
+            lot_size = Instruments.get_lot_size(trade.trading_symbol, user.uid)
+            lots = capital//lot_size
+        else:
+            lots = user.strategy_capital_map[trade.strategy]
+            # lots = capital//self.capital_per_set
+            lot_size = Instruments.get_lot_size(trade.trading_symbol, user.uid)
+        return lots, lot_size
         
     def get_quantity(self, user, trade):
+        print('is_fno base: ', self.is_fno)
         if self.is_fno:
             return self.calculate_lots_per_trade(user, trade)
+        else:
+            return 0, 0
 
     def can_trade_today(self):
         '''
@@ -92,6 +99,7 @@ class BaseStrategy:
         '''
         This function should not be overridden in the derived class
         '''
+        logging.info(f'{self.get_name()}: Strategy starting.')
         if not self.enabled:
             logging.warn('%s: Not going to run strategy as it is not enabled', self.get_name())
             return
@@ -117,14 +125,16 @@ class BaseStrategy:
         
         while True:
             if is_market_closed_for_day():
+                self.update_before_close()
                 logging.warn('%s: Exiting the strategy as market closed.', self.get_name())
                 break
 
             self.process()
 
-            now = datetime.datetime.now()
-            wait_seconds = 30-(now.second%30)
-            time.sleep(wait_seconds)
+            # now = datetime.datetime.now()
+            # wait_seconds = 30-(now.second%30)
+            # time.sleep(wait_seconds)
+            time.sleep(5)
     
     def should_place_trade(self, trade, tick):
         '''
@@ -152,4 +162,22 @@ class BaseStrategy:
     
     def should_move_sl_to_cost(self):
         return self.move_sl_to_cost
+    
+    def get_trailing_sl(self, trade):
+        return 0
+    
+    def update_before_close(self):
+        return
+    
+    def should_place_sl(self, trade):
+        return
+    
+    def should_place_target(self, trade):
+        return
+    
+    def should_partial_exit(self, trade):
+        return
+    
+    def update_flags(self, trade, context=None):
+        return
     

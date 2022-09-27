@@ -1,6 +1,6 @@
 class TickData:
     def __init__(self, tradingSymbol):
-        self.tradingSymbol = tradingSymbol
+        self.trading_symbol = tradingSymbol
         self.last_traded_price = 0
         self.last_traded_quantity = 0
         self.average_traded_price = 0
@@ -29,4 +29,4 @@ class TickData:
         self.change = data['change']
     
     def __str__(self):
-        return 'Trading Symbol: ' + self.tradingSymbol + ', LTP: ' + str(self.last_traded_price)
+        return 'Trading Symbol: ' + self.trading_symbol + ', LTP: ' + str(self.last_traded_price)
