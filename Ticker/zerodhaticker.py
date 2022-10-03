@@ -60,8 +60,7 @@ class ZerodhaTicker(BaseTicker):
         tokens = []
         trading_symbols = []
         for symbol in symbols:
-            symbol['broker'] = 'zerodha'
-            zerodha_symbol = Instruments.get_trading_symbol(symbol, uid)
+            zerodha_symbol = Instruments.get_ticker_subscription_format(symbol, uid)
             if not zerodha_symbol:
                 logging.info(f'Token not found for symbol: {symbol}')
                 trading_symbols.append(None)
