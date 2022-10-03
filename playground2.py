@@ -1,8 +1,14 @@
 from BrokerController.brokercontroller import BrokerController
 from Instruments.instruments import Instruments
 from Strategies.niftyshortstraddle import NiftyShortStraddle
+from Strategies.bankniftyshortstraddle import BankniftyShortStraddle
 from Config.config import get_users
 from Trademanagement.trademanager import TradeManager
+from Ticker.fyersticker import FyersTicker
+from Ticker.zerodhaticker import ZerodhaTicker
+from Ticker.zerodhaquoteticker import ZerodhaQuoteTicker
+from User.userdecoder import UserDecoder
+from User.user import User
 import datetime
 import time
 import pandas as pd
@@ -11,6 +17,7 @@ import logging
 import threading
 from Utils.utils import get_epoch, get_expiry
 from Config.config import get_server_config
+
 
 def init_logging(filepath):
     format = '%(asctime)s: %(message)s'
@@ -185,11 +192,81 @@ def update_volumesma(df, lookback):
 # print(vol_sma)
 # print(datetime.datetime.now())
 
-logging.info('Starting Algo...')
-tm = threading.Thread(target=TradeManager.run)
-tm.start()
+# logging.info('Starting Algo...')
+# tm = threading.Thread(target=TradeManager.run)
+# tm.start()
 
-time.sleep(5)
+# time.sleep(5)
 
-expiry = get_expiry('BANKNIFTY', 'current', 'FUT')
-print(expiry)
+# expiry = get_expiry('BANKNIFTY', 'current', 'FUT')
+# print(expiry)
+
+uid = {
+    "app_id":'16388ARZQI-100',
+    "secret_id":'A180CH2MBS',
+    "redirect_url":'https://127.0.0.1',
+    "response_type":'code',
+    "grant_type":'authorization_code',
+    "client_id":'XS05922',
+    "password":'Autobot@2290',
+    "two_fa":'3602',
+    "login_url":'https://api.fyers.in/vagator/v1/login',
+    "verify_url":'https://api.fyers.in/vagator/v1/verify_pin',
+    "token_url":'https://api.fyers.in/api/v2/token'
+}
+
+def print_ticks(tick):
+    print(tick)
+
+server_config = get_server_config()
+
+users_uid = get_users(UserDecoder)
+for uid in users_uid:
+    user_obj = User(users_uid[uid])
+    # Test each user object to check if login is a success. Make a profile call.
+
+
+for broker in BrokerController.brokers:
+    Instruments.fetch_instruments(broker)
+
+
+print(Instruments.instruments_list.keys())
+print('Instruments loaded')
+
+BankniftyShortStraddle.init_service()
+print(BankniftyShortStraddle.FUT_SYMBOL)
+print(BankniftyShortStraddle.CE_TICKERS)
+print(BankniftyShortStraddle.PE_TICKERS)
+straddle = BankniftyShortStraddle.get_straddle_combination()
+ce_symbol = straddle['ce']['trading_symbol']
+pe_symbol = straddle['pe']['trading_symbol']
+
+straddle_combo_price = BankniftyShortStraddle.get_straddle_combo_price(ce_symbol, pe_symbol)
+print(straddle_combo_price)
+
+# ticker_broker_name = server_config['ticker_broker']
+# if ticker_broker_name == 'zerodha':
+#     ticker = ZerodhaTicker().get_instance()
+# elif ticker_broker_name == 'fyers':
+#     ticker = FyersTicker().get_instance()
+# elif ticker_broker_name == 'jugaadtrader':
+#     ticker = ZerodhaQuoteTicker().get_instance()
+
+# ticker.register_listener(print_ticks)
+# # ticker.start_ticker()
+# threading.Thread(target=ticker.start_ticker).start()
+# name = 'NIFTY'
+# instrument_type = 'FUT'
+# strike = 0
+# expiry = '27-10-2022'
+# # expiry = datetime.datetime.strptime(expiry, '%d-%m-%Y').date()
+# exchange = 'NSE'
+# ticker_symbol_dict = {'name':name, 'instrument_type':instrument_type, 'strike':strike, 'expiry':expiry, 'exchange':exchange}
+# ticker.register_symbols([ticker_symbol_dict], BrokerController.broker_ticker_uid[ticker_broker_name])
+
+# df = Instruments.instruments_list['fyers']
+# symbol_ticker = df[(df['symbol'] == ticker_symbol_dict['name']) & 
+#                     (df['instrument_type'] == ticker_symbol_dict['instrument_type']) &
+#                     (df['expiry'] == expiry) &
+#                     (df['strike'] == ticker_symbol_dict['strike'])]['symbol_ticker'].iloc[0]
+# print(symbol_ticker)

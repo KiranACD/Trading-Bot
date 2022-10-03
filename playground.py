@@ -10,6 +10,7 @@ import time
 # from Ticker.zerodhaquoteticker import ZerodhaQuoteTicker
 from Strategies.niftyshortstraddle import NiftyShortStraddle
 from Strategies.niftyshortstraddleISL920 import NiftyShortStraddleISL920
+from Strategies.niftyshortstraddleISL920rentry1330 import NiftyShortStraddleISL920rentry1330
 from Strategies.bankniftyshortstraddle import BankniftyShortStraddle
 from Strategies.bankniftystraddleadjust import BankniftyStraddleAdjust
 from Trademanagement.trademanager import TradeManager
@@ -45,8 +46,9 @@ time.sleep(5)
 NiftyShortStraddle.init_service()
 BankniftyShortStraddle.init_service()
 
-threading.Thread(target=NiftyShortStraddleISL920.get_instance().run).start()
-threading.Thread(target=BankniftyStraddleAdjust.get_instance().run).start()
+# threading.Thread(target=NiftyShortStraddleISL920.get_instance().run).start()
+# threading.Thread(target=BankniftyStraddleAdjust.get_instance().run).start()
+threading.Thread(target=NiftyShortStraddleISL920rentry1330.get_instance().run).start()
 
 
 # users_uid = get_users(UserDecoder)

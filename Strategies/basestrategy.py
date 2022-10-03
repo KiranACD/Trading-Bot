@@ -2,6 +2,7 @@ import logging
 import time
 import datetime
 import configparser
+from collections import defaultdict
 from Instruments.instruments import Instruments
 
 from Models.producttype import ZerodhaProductType, FyersProductType
@@ -128,6 +129,7 @@ class BaseStrategy:
                 self.update_before_close()
                 logging.warn('%s: Exiting the strategy as market closed.', self.get_name())
                 break
+            logging.info(f'{self.get_name()}: Num Trades: {self.num_trades} Max Trades: {self.max_trades_per_day}')
 
             self.process()
 

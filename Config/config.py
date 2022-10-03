@@ -37,10 +37,10 @@ def get_instruments_json():
     return instruments_json
 
 def get_nifty_straddle_service_config(cls=None):
-    return read_json('ConfigFiles/straddle_service_config.json', cls=cls)['nifty']
+    return read_json('ConfigFiles/straddle_service_config.json', cls=cls)['NIFTY']
 
 def get_banknifty_straddle_service_config(cls=None):
-    return read_json('ConfigFiles/straddle_service_config.json', cls=cls)['banknifty']
+    return read_json('ConfigFiles/straddle_service_config.json', cls=cls)['BANKNIFTY']
 
 def read_json(filename, cls=None):
     """

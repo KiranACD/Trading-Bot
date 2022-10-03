@@ -5,8 +5,9 @@ import datetime
 
 from Quotes.quotes import Quotes
 from Instruments.instruments import Instruments
+from BrokerController.brokercontroller import BrokerController
 from Utils.utils import get_expiry
-from Config.config import get_banknifty_straddle_service_config
+from Config.config import get_banknifty_straddle_service_config, get_server_config
 
 class BankniftyShortStraddle:
     FUT_SYMBOL = None
@@ -39,14 +40,17 @@ class BankniftyShortStraddle:
         BankniftyShortStraddle.config = get_banknifty_straddle_service_config()
         BankniftyShortStraddle.base = int(BankniftyShortStraddle.config['base'])
         BankniftyShortStraddle.number_of_strikes = int(BankniftyShortStraddle.config['number_of_strikes'])
-        uid = BankniftyShortStraddle.config['uid']
+        historical_broker = get_server_config()['historical_broker']
+        uid = BrokerController.get_historical_broker_uid(historical_broker)
+        BankniftyShortStraddle.config['uid'] = uid
         start = datetime.datetime.now()
         while True:
             try:
                 expiry = get_expiry('BANKNIFTY', 'current', 'FUT')
+
                 symbol = BankniftyShortStraddle.get_symbol_dict('BANKNIFTY', 'FUT', 0, expiry, 'NFO')
                 BankniftyShortStraddle.FUT_SYMBOL_DICT = symbol
-                BankniftyShortStraddle.FUT_SYMBOL = Instruments.get_trading_symbol(symbol, uid)
+                BankniftyShortStraddle.FUT_SYMBOL = Instruments.get_key_for_quotes(symbol, uid)
                 if BankniftyShortStraddle.FUT_SYMBOL is None and (datetime.datetime.now() - start).seconds < 300:
                     continue
                 break
@@ -62,20 +66,22 @@ class BankniftyShortStraddle:
         try:
             underlying_price = Quotes.get_fno_quote(BankniftyShortStraddle.FUT_SYMBOL, uid).last_traded_price
         except Exception as e:
+            print('Error: ', e)
             logging.error(f'Error while getting {BankniftyShortStraddle.FUT_SYMBOL} quote. Unable to populate tickers.')
             return
+        print('price: ', underlying_price)
         strikes_list = BankniftyShortStraddle.get_strikes_list(underlying_price)
         expiry = get_expiry('BANKNIFTY','current', 'OPT')
-
+        print(expiry)
         for strike in strikes_list:
             symbol = BankniftyShortStraddle.get_symbol_dict('BANKNIFTY', 'CE', float(strike), expiry, 'NFO')
             # symbol = {'name':'NIFTY', 'instrument_type':'CE', 'expiry':expiry, 'strike':float(strike), 'exchange':'NFO'} 
             BankniftyShortStraddle.symbol_dict_list.append(symbol)
-            ce_trading_symbol = Instruments.get_trading_symbol(symbol, uid)
+            ce_trading_symbol = Instruments.get_key_for_quotes(symbol, uid)
             BankniftyShortStraddle.CE_TICKERS[strike] = ce_trading_symbol
             symbol = BankniftyShortStraddle.get_symbol_dict('BANKNIFTY', 'PE', float(strike), expiry, 'NFO')
             BankniftyShortStraddle.symbol_dict_list.append(symbol)
-            pe_trading_symbol = Instruments.get_trading_symbol(symbol, uid)
+            pe_trading_symbol = Instruments.get_key_for_quotes(symbol, uid)
             BankniftyShortStraddle.PE_TICKERS[strike] = pe_trading_symbol
 
     

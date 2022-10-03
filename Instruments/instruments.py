@@ -3,6 +3,7 @@ import logging
 import json
 import datetime
 import pandas as pd
+import numpy as np
 from Config.config import write_json, write_pickle, get_instruments_json, read_pickle, read_json
 from BrokerController.brokercontroller import BrokerController
 
@@ -20,6 +21,8 @@ class Instruments:
     def check_last_updated_date(broker):
         if not Instruments.instruments_metadata:
             Instruments.get_instruments_metadata()
+        if broker not in Instruments.instruments_metadata:
+            return False
         return Instruments.instruments_metadata[broker]['last_date_updated'] == str(datetime.datetime.today().date())
 
     @staticmethod
@@ -51,6 +54,8 @@ class Instruments:
             return Instruments.fetch_instruments_from_zerodha()
         elif broker == 'jugaadtrader':
             return Instruments.fetch_instruments_from_jugaadtrader()
+        elif broker == 'fyers':
+            return Instruments.fetch_instruments_from_fyers()
     
 
     @staticmethod
@@ -116,6 +121,31 @@ class Instruments:
         except Exception as e:
             logging.exception(f'Exception while fetching instruments from broker: {e}')
             return False
+    
+    @staticmethod
+    def fetch_instruments_from_fyers():
+        equity_derivatives_url = Instruments.instruments_metadata['fyers']['equity_derivatives_url']
+        equity_cash_url = Instruments.instruments_metadata['fyers']['equity_cash_url']
+        try:
+            df = pd.read_csv(equity_derivatives_url, header=None)
+        except Exception as e:
+            logging.exception(f'Exception while fetching instruments from broker: {e}')
+            return False
+        df.columns = 'fy_token symbol_details exchange_instrument_type minimum_lot_size tick_size isin trading_session last_update_date expiry symbol_ticker exchange segment scrip_code symbol underlying_scrip_code strike option_type'.split()
+        df['expiry'] = df['expiry'].apply(lambda x: datetime.datetime.fromtimestamp(x).date())
+        df['instrument_type'] = df['symbol_details'].apply(lambda x: x.split()[-1])
+        try:
+            df2 = pd.read_csv(equity_cash_url, header=None)
+        except Exception as e:
+            logging.exception(f'Exception while fetching instruments from broker: {e}')
+            return False
+        df2.columns = 'fy_token symbol_details exchange_instrument_type minimum_lot_size tick_size isin trading_session last_update_date expiry symbol_ticker exchange segment scrip_code symbol underlying_scrip_code strike option_type'.split()
+        df = df.append(df2)
+        df['strike'] = np.where((df['strike'] == -1), 0, df['strike'])
+        write_pickle(df, 'ConfigFiles/fyers_instruments.pickle')
+        Instruments.instruments_list['fyers'] = df
+        Instruments.update_instruments_metadata('fyers')
+        return True
 
     @staticmethod
     def change_symbol_to_zerodha_format(symbol):
@@ -142,12 +172,43 @@ class Instruments:
             return {}
     
     @staticmethod
+    def change_symbol_to_fyers_format(symbol):
+        try:
+            df = Instruments.instruments_list['fyers']
+        except Exception as e:
+            print(f'Exception while looking up fyers instruments data: {e}')
+            logging.exception(f'Exception while looking up fyers instruments data: {e}')
+            return None        
+        try:
+            expiry = datetime.datetime.strptime(symbol['expiry'], '%d-%m-%Y')
+            expiry = expiry.date()
+            symbol_ticker = df[(df['symbol'] == symbol['name']) & 
+                    (df['instrument_type'] == symbol['instrument_type']) &
+                    (df['expiry'] == expiry) &
+                    (df['strike'] == symbol['strike'])]['symbol_ticker'].iloc[0]
+            return symbol_ticker
+        except Exception as e:
+            print(f'Fyers instument symbol ticker not found due to: {e}')
+            logging.exception(f'Fyers instument symbol ticker not found due to: {e}')
+            return None
+    
+    @staticmethod
     def get_ticker_subscription_format(symbol, uid):
         uid_details = BrokerController.uid_uid_details_map[uid]
         if uid_details['broker'] == 'zerodha':
             return Instruments.change_symbol_to_zerodha_format(symbol)
         elif uid_details['broker'] == 'jugaadtrader':
             return Instruments.get_jugaadtrader_trading_symbol(symbol=symbol)
+        elif uid_details['broker'] == 'fyers':
+            return Instruments.change_symbol_to_fyers_format(symbol)
+
+    @staticmethod
+    def get_key_for_quotes(symbol, uid):
+        uid_details = BrokerController.uid_uid_details_map[uid]
+        if uid_details['broker'] == 'zerodha' or uid_details['broker'] == 'jugaadtrader':
+            return Instruments.get_trading_symbol(symbol, uid)
+        elif uid_details['broker'] == 'fyers':
+            return Instruments.get_fyers_quotes_symbol(symbol=symbol)
 
     @staticmethod
     def get_trading_symbol(symbol, uid):
@@ -157,6 +218,25 @@ class Instruments:
         elif uid_details['broker'] == 'jugaadtrader':
             return Instruments.get_jugaadtrader_trading_symbol(symbol=symbol)
     
+    @staticmethod
+    def get_fyers_quotes_symbol(symbol=None):
+        df = Instruments.instruments_list['fyers']
+        if symbol:
+            try:
+                expiry = datetime.datetime.strptime(symbol['expiry'], '%d-%m-%Y')
+                expiry = expiry.date()
+                print(symbol)
+                print(expiry)
+                tradingsymbol = df[(df['symbol'] == symbol['name']) &
+                                   (df['instrument_type'] == symbol['instrument_type']) &
+                                   (df['expiry'] == expiry) &
+                                   (df['strike'] == symbol['strike'])]['symbol_ticker'].iloc[0]
+                return tradingsymbol
+            except Exception as e:
+                print(f'Fyers trading symbol not found due to: {e}')
+                logging.exception(f'Fyers trading symbol not found due to: {e}')
+                return None
+
     @staticmethod
     def get_zerodha_trading_symbol(token=None, symbol=None):
         df = Instruments.instruments_list['zerodha']

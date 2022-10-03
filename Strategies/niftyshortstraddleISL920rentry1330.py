@@ -1,14 +1,12 @@
 import logging
 import datetime
 import uuid
-import configparser
 from collections import defaultdict
-from Instruments.instruments import Instruments
 from Models.direction import Direction
 from Models.producttype import ZerodhaProductType, FyersProductType
 from Strategies.niftyshortstraddle import NiftyShortStraddle
 from Strategies.basestrategy import BaseStrategy
-from Utils.utils import get_epoch, round_to_nse_price
+from Utils.utils import get_epoch, round_to_nse_price, get_time_of_today
 from Trademanagement.trademanager import TradeManager
 from Trademanagement.trade import Trade
 from Trademanagement.tradestate import TradeState
@@ -33,16 +31,16 @@ class NiftyShortStraddleISL920rentry1330(BaseStrategy):
         cfg = super().get_strategy_config()
         name = self.get_name()
         self.underlying = cfg[name]['underlying']
-        self.number_of_strikes = cfg[name]['number_of_strikes']
-        self.base = cfg[name]['base']
+        self.base = float(cfg[name]['base'])
         self.expiry = cfg[name]['expiry']
-        self.call_sl_percent = cfg[name]['call_sl_percent']
-        self.put_sl_percent = cfg[name]['put_sl_percent']
-        self.max_loss = cfg[name]['max_loss']
-        self.call_target_percent = cfg[name]['call_target_percent']
-        self.put_target_percent = cfg[name]['put_target_percent']
+        self.call_sl_percent = float(cfg[name]['call_sl_percent'])
+        self.put_sl_percent = float(cfg[name]['put_sl_percent'])
+        self.max_loss = float(cfg[name]['max_loss'])
+        self.call_target_percent = float(cfg[name]['call_target_percent'])
+        self.put_target_percent = float(cfg[name]['put_target_percent'])
         self.days_to_trade = cfg[name]['days_to_trade'].replace(' ', '').split(',')
-        self.rentry_time = datetime.datetime.strptime(cfg[name]['rentry_time'], '%H:%M:%S')
+        hour, minute, second = list(map(int, cfg[name]['reentry_time'].split(':')))#datetime.datetime.strptime(, '%H:%M:%S')
+        self.reentry_time = get_time_of_today(hour, minute, second)
         self.straddle = defaultdict(list)
     
     def process(self):
@@ -52,21 +50,33 @@ class NiftyShortStraddleISL920rentry1330(BaseStrategy):
         if self.num_trades >= self.max_trades_per_day:
             return
         if self.num_trades < 1:
-            ce_symbol, pe_symbol = NiftyShortStraddle.get_straddle_combination()
+            straddle = NiftyShortStraddle.get_straddle_combination()
+            ce_symbol = straddle['ce']['trading_symbol']
+            pe_symbol = straddle['pe']['trading_symbol']
             logging.info('%s: ATMCESymbol: %s, ATMPESymbol: %s', self.get_name(), ce_symbol, pe_symbol)
-            self.generate_trades(ce_symbol, pe_symbol)
-        elif self.num_trades < self.max_trades_per_day and now < self.rentry_time:
+            for user in TradeManager.users:
+                if self.get_name() in user.subscribed_strategies:
+                    self.generate_trades(straddle, user)
+            self.num_trades += 1
+        elif self.num_trades < self.max_trades_per_day and now < self.reentry_time:
             for trade in self.trades:
-                if trade.tradestatus != TradeState.COMPLETED:
+                if trade.tradestate != TradeState.COMPLETED:
                     return
-            ce_symbol, pe_symbol = NiftyShortStraddle.get_straddle_combination()
+            straddle = NiftyShortStraddle.get_straddle_combination()
+            ce_symbol = straddle['ce']['trading_symbol']
+            pe_symbol = straddle['pe']['trading_symbol']
             logging.info('%s: ATMCESymbol: %s, ATMPESymbol: %s', self.get_name(), ce_symbol, pe_symbol)
-            self.generate_trades(ce_symbol, pe_symbol)
+            for user in TradeManager.users:
+                if self.get_name() in user.subscribed_strategies:
+                    self.generate_trades(straddle, user)
+            self.num_trades += 1
             
 
     
-    def generate_trades(self, ce_symbol, pe_symbol):
+    def generate_trades(self, straddle, user):
         # num_lots = self.calculate_lots_per_trade()
+        ce_symbol = straddle['ce']['trading_symbol']
+        pe_symbol = straddle['pe']['trading_symbol']
         straddle_combo_price = NiftyShortStraddle.get_straddle_combo_price(ce_symbol, pe_symbol)
         if not straddle_combo_price:
             logging.error('%s: Could not get straddle combo price for symbols %s, %s', self.get_name(), ce_symbol, pe_symbol)
@@ -74,38 +84,40 @@ class NiftyShortStraddleISL920rentry1330(BaseStrategy):
         ce_price = straddle_combo_price[0]
         pe_price = straddle_combo_price[1]
         straddle_id = str(uuid.uuid4())
-        self.generate_trade(ce_symbol, ce_price, 'CE', straddle_id)
-        self.generate_trade(pe_symbol, pe_price, 'PE', straddle_id)
+        self.generate_trade(straddle['ce'], ce_price, 'CE', straddle_id, user)
+        self.generate_trade(straddle['pe'], pe_price, 'PE', straddle_id, user)
         logging.info('%s: Trades generated.', self.get_name())
-        self.num_trades += 1
+        
+        
     
-    def generate_trade(self, symbol, ltp, option_type, straddle_id):
+    def generate_trade(self, symbol_dict, ltp, option_type, straddle_id, user):
 
-        for user in TradeManager.users:
-            if self.get_name() in user.subscribed_strategies:
-                uid = user.uid
-                new_straddle_id = straddle_id + '-' + uid
-                trade = Trade(symbol)
-                trade.strategy = self.get_name()
-                trade.uid = uid
-                trade.is_options = True
-                trade.direction = Direction.SHORT
-                trade.product_type = self.product_type
-                trade.place_market_order = False
-                trade.requested_entry = ltp
-                trade.timestamp = get_epoch(self.start_timestamp)
+        symbol = symbol_dict['trading_symbol']
+        ticker_symbol_dict = symbol_dict['symbol_dict']
+        uid = user.uid
+        new_straddle_id = straddle_id + '-' + uid
+        trade = Trade(symbol)
+        trade.ticker_symbol_dict = ticker_symbol_dict
+        trade.strategy = self.get_name()
+        trade.broker = user.broker
+        trade.uid = uid
+        trade.is_options = True
+        trade.direction = Direction.SHORT
+        trade.product_type = self.product_type
+        trade.place_market_order = False
+        trade.requested_entry = ltp
+        trade.timestamp = get_epoch(self.start_timestamp)
 
-                trade.quantity = self.get_quantity(user, trade)
+        lots, lot_size = self.get_quantity(user, trade)
+        trade.quantity = int(lots * lot_size)
+        trade.max_loss = -1 * lots * self.max_loss
+        sl_amount = trade.requested_entry*self.call_sl_percent if option_type == "CE" else trade.requested_entry*self.put_sl_percent
+        trade.stoploss = trade.requested_entry + sl_amount
 
-                sl_amount = trade.requested_entry*self.call_sl_percent if option_type == "CE" else trade.requested_entry*self.put_sl_percent
-                trade.stoploss = trade.requested_entry + sl_amount
-                target_amount = trade.requested_entry*self.call_target_percent if option_type == "CE" else trade.requested_entry*self.put_target_percent
-                trade.target = trade.requested_entry - target_amount
-
-                trade.intraday_square_off_timestamp = get_epoch(self.squareoff_timestamp)
-                self.straddle[new_straddle_id].append(trade)
-                trade.straddle_id = new_straddle_id
-                TradeManager.add_new_trade(trade)
+        trade.intraday_square_off_timestamp = get_epoch(self.squareoff_timestamp)
+        self.straddle[new_straddle_id].append(trade)
+        trade.straddle_id = new_straddle_id
+        TradeManager.add_new_trade(trade)
     
     def should_place_trade(self, trade, tick):
         if not super().should_place_trade(trade, tick):

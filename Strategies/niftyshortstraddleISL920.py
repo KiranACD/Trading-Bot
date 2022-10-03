@@ -1,9 +1,7 @@
 import logging
 import datetime
 import uuid
-import configparser
 from collections import defaultdict
-from Instruments.instruments import Instruments
 from Models.direction import Direction
 from Models.producttype import ZerodhaProductType, FyersProductType
 from Strategies.niftyshortstraddle import NiftyShortStraddle

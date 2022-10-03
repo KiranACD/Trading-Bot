@@ -2,6 +2,6 @@
     "root":"ConfigFiles/",
     "logfiledir":"LogFileDir/",
     "users_file":"ConfigFiles/users.json",
-    "ticker_broker":"jugaadtrader",
-    "historical_broker":"jugaadtrader"
+    "ticker_broker":"fyers",
+    "historical_broker":"fyers"
 }

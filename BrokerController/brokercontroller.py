@@ -1,5 +1,6 @@
 import logging
 import datetime
+from Loginmanagement.fyerslogin import FyersLogin
 from Loginmanagement.zerodhalogin import ZerodhaLogin
 from Loginmanagement.jugaadTraderlogin import JugaadTradeLogin
 from Config.config import write_json, get_users
@@ -48,6 +49,22 @@ class BrokerController:
                 BrokerController.instruments_broker_uid['jugaadtrader'] = uid['uid']
             if 'jugaadtrader' not in BrokerController.brokers:
                 BrokerController.brokers.append('jugaadtrader')
+        elif uid['broker'] == 'fyers':
+            if uid['access_token_date'] == str(datetime.datetime.now().date()):
+                broker_handle = FyersLogin.set_broker_handle(uid)
+            else:
+                broker_handle = FyersLogin.login(uid)
+            logging.info(f'Logged into {uid["name"]} with user id {uid["account_username"]}')
+            BrokerController.brokerhandle_uid_details_map[uid['uid']] = broker_handle
+            BrokerController.uid_uid_details_map[uid['uid']] = uid
+            if uid['ticker'] and 'fyers' not in BrokerController.broker_ticker_uid:
+                BrokerController.broker_ticker_uid['fyers'] = uid['uid']
+            if uid['historical_data'] and 'fyers' not in BrokerController.broker_historical_uid:
+                BrokerController.broker_historical_uid['fyers'] = uid['uid']
+            if 'fyers' not in BrokerController.instruments_broker_uid:
+                BrokerController.instruments_broker_uid['fyers'] = uid['uid']
+            if 'fyers' not in BrokerController.brokers:
+                BrokerController.brokers.append('fyers')
         
         BrokerController.save_user_details_to_json(uid)
     
@@ -65,6 +82,9 @@ class BrokerController:
         if broker == 'zerodha' and broker in BrokerController.broker_ticker_uid:
             uid_id = BrokerController.broker_ticker_uid[broker]
             return uid_id
+        elif broker == 'fyers' and broker in BrokerController.broker_ticker_uid:
+            uid_id = BrokerController.broker_ticker_uid[broker]
+            return uid_id
         return None
     
     @staticmethod
@@ -73,6 +93,9 @@ class BrokerController:
             uid_id = BrokerController.broker_historical_uid[broker]
             return uid_id
         elif broker == 'jugaadtrader' and broker in BrokerController.broker_historical_uid:
+            uid_id = BrokerController.broker_historical_uid[broker]
+            return uid_id
+        elif broker == 'fyers' and broker in BrokerController.broker_historical_uid:
             uid_id = BrokerController.broker_historical_uid[broker]
             return uid_id
         return None

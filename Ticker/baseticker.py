@@ -31,6 +31,7 @@ class BaseTicker:
                     tl.start()
                     # listener(tick)
                 except Exception as e:
+                    print('Error')
                     logging.error('BaseTicker: Exception from listener callback function. Error => %s', str(e))
     
     def onConnect(self):

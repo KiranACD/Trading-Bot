@@ -57,6 +57,7 @@ class ZerodhaLogin:
         # return cfg
         return kite
     
+    @staticmethod
     def set_broker_handle(uid):
 
         api_key = uid['api_key']

@@ -8,7 +8,7 @@ class Quotes:
     @staticmethod
     def get_fno_quote(symbol, uid):
         if isinstance(symbol, dict):
-            trading_symbol = Instruments.get_trading_symbol(symbol)
+            trading_symbol = Instruments.get_key_for_quotes(symbol, uid)
             if trading_symbol is None:
                 logging.error('Trading symbol not available for symbol: %s', symbol)
                 return
@@ -31,11 +31,20 @@ class Quotes:
             quote = Quote(trading_symbol)
             quote = Quotes.fill_zerodha_quote(quote, broker_quote)
             return quote
+        elif broker == 'fyers':
+            broker_handle = BrokerController.get_broker_handle_uid(uid)
+            key = trading_symbol
+            data = {'symbols':key}
+            quote_response = broker_handle.quotes(data)
+            broker_quote = quote_response['d'][0]['v']
+            quote = Quote(trading_symbol.split(':')[-1])
+            quote = Quotes.fill_fyers_quote(quote, broker_quote)
+            return quote
     
     @staticmethod
     def get_equity_quote(symbol, uid):
         if isinstance(symbol, dict):
-            trading_symbol = Instruments.get_trading_symbol(symbol)
+            trading_symbol = Instruments.get_trading_symbol(symbol, uid)
             if trading_symbol is None:
                 logging.error('Trading symbol not available for symbol: %s', symbol)
                 return
@@ -50,11 +59,20 @@ class Quotes:
             quote = Quote(trading_symbol)
             quote = Quotes.fill_zerodha_quote(quote, broker_quote)
             return quote
+        elif broker == 'fyers':
+            broker_handle = BrokerController.get_broker_handle_uid(uid)
+            key = trading_symbol
+            data = {'symbols':key}
+            quote_response = broker_handle.quotes(data)
+            broker_quote = quote_response['d'][0]['v']
+            quote = Quote(trading_symbol.split(':')[-1])
+            quote = Quotes.fill_fyers_quote(quote, broker_quote)
+            return quote
 
     @staticmethod
     def get_currency_quote(symbol, uid):
         if isinstance(symbol, dict):
-            trading_symbol = Instruments.get_trading_symbol(symbol)
+            trading_symbol = Instruments.get_trading_symbol(symbol, uid)
             if trading_symbol is None:
                 logging.error('Trading symbol not available for symbol: %s', symbol)
                 return
@@ -69,11 +87,20 @@ class Quotes:
             quote = Quote(trading_symbol)
             quote = Quotes.fill_zerodha_quote(quote, broker_quote)
             return quote
+        elif broker == 'fyers':
+            broker_handle = BrokerController.get_broker_handle_uid(uid)
+            key = trading_symbol
+            data = {'symbols':key}
+            quote_response = broker_handle.quotes(data)
+            broker_quote = quote_response['d'][0]['v']
+            quote = Quote(trading_symbol.split(':')[-1])
+            quote = Quotes.fill_fyers_quote(quote, broker_quote)
+            return quote
 
     @staticmethod
     def get_commodity_quote(symbol, uid):
         if isinstance(symbol, dict):
-            trading_symbol = Instruments.get_trading_symbol(symbol)
+            trading_symbol = Instruments.get_trading_symbol(symbol, uid)
             if trading_symbol is None:
                 logging.error('Trading symbol not available for symbol: %s', symbol)
                 return
@@ -87,6 +114,15 @@ class Quotes:
             broker_quote = quote_response[key]
             quote = Quote(trading_symbol)
             quote = Quotes.fill_zerodha_quote(quote, broker_quote)
+            return quote
+        elif broker == 'fyers':
+            broker_handle = BrokerController.get_broker_handle_uid(uid)
+            key = trading_symbol
+            data = {'symbols':key}
+            quote_response = broker_handle.quotes(data)
+            broker_quote = quote_response['d'][0]['v']
+            quote = Quote(trading_symbol.split(':')[-1])
+            quote = Quotes.fill_fyers_quote(quote, broker_quote)
             return quote
 
     @staticmethod
@@ -108,5 +144,18 @@ class Quotes:
         quote.oi_day_low = broker_quote['oi_day_low']
         quote.lower_circuit_limit = broker_quote['lower_circuit_limit']
         quote.upper_circuit_limit = broker_quote['upper_circuit_limit']
-        
+        return quote
+    
+    @staticmethod
+    def fill_fyers_quote(quote, broker_quote):
+
+        quote.last_traded_price = broker_quote['lp']
+        cmd = broker_quote['cmd']
+        quote.last_traded_quantity = cmd['v']
+        quote.volume = broker_quote['volume']
+        quote.open = cmd['o']
+        quote.high = cmd['h']
+        quote.low = cmd['l']
+        quote.close = cmd['c']
+        quote.change = broker_quote['ch']
         return quote

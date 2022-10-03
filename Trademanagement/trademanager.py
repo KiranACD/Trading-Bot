@@ -512,6 +512,8 @@ class TradeManager:
             return
         if trade.sl_order.order_status == OrderStatus.CANCELLED:
             return
+        if trade.sl_order.order_status == OrderStatus.COMPLETE:
+            return
         try:
             TradeManager.get_order_manager(trade.uid).cancel_order(trade.sl_order)
         except Exception as e:
@@ -523,6 +525,8 @@ class TradeManager:
         if trade.target_order is None:
             return
         if trade.target_order.order_status == OrderStatus.CANCELLED:
+            return
+        if trade.target_order.order_status == OrderStatus.COMPLETE:
             return
         try:
             TradeManager.get_order_manager(trade.uid).cancel_order(trade.target_order)

@@ -5,8 +5,9 @@ import datetime
 
 from Quotes.quotes import Quotes
 from Instruments.instruments import Instruments
+from BrokerController.brokercontroller import BrokerController
 from Utils.utils import get_expiry
-from Config.config import get_nifty_straddle_service_config
+from Config.config import get_nifty_straddle_service_config, get_server_config
 
 class NiftyShortStraddle:
     FUT_SYMBOL = None
@@ -39,14 +40,16 @@ class NiftyShortStraddle:
         NiftyShortStraddle.config = get_nifty_straddle_service_config()
         NiftyShortStraddle.base = int(NiftyShortStraddle.config['base'])
         NiftyShortStraddle.number_of_strikes = int(NiftyShortStraddle.config['number_of_strikes'])
-        uid = NiftyShortStraddle.config['uid']
+        historical_broker = get_server_config()['historical_broker']
+        uid = BrokerController.get_historical_broker_uid(historical_broker)
+        NiftyShortStraddle.config['uid'] = uid
         start = datetime.datetime.now()
         while True:
             try:
                 expiry = get_expiry('NIFTY', 'current', 'FUT')
                 symbol = NiftyShortStraddle.get_symbol_dict('NIFTY', 'FUT', 0, expiry, 'NFO')
                 NiftyShortStraddle.FUT_SYMBOL_DICT = symbol
-                NiftyShortStraddle.FUT_SYMBOL = Instruments.get_trading_symbol(symbol, uid)
+                NiftyShortStraddle.FUT_SYMBOL = Instruments.get_key_for_quotes(symbol, uid)
                 if NiftyShortStraddle.FUT_SYMBOL is None and (datetime.datetime.now() - start).seconds < 300:
                     continue
                 break
@@ -67,11 +70,11 @@ class NiftyShortStraddle:
             symbol = NiftyShortStraddle.get_symbol_dict('NIFTY', 'CE', float(strike), expiry, 'NFO')
             # symbol = {'name':'NIFTY', 'instrument_type':'CE', 'expiry':expiry, 'strike':float(strike), 'exchange':'NFO'} 
             NiftyShortStraddle.symbol_dict_list.append(symbol)
-            ce_trading_symbol = Instruments.get_trading_symbol(symbol, uid)
+            ce_trading_symbol = Instruments.get_key_for_quotes(symbol, uid)
             NiftyShortStraddle.CE_TICKERS[strike] = ce_trading_symbol
             symbol = NiftyShortStraddle.get_symbol_dict('NIFTY', 'PE', float(strike), expiry, 'NFO')
             NiftyShortStraddle.symbol_dict_list.append(symbol)
-            pe_trading_symbol = Instruments.get_trading_symbol(symbol, uid)
+            pe_trading_symbol = Instruments.get_key_for_quotes(symbol, uid)
             NiftyShortStraddle.PE_TICKERS[strike] = pe_trading_symbol
 
     
@@ -100,10 +103,10 @@ class NiftyShortStraddle:
     def add_ticker(symbol):
         uid = NiftyShortStraddle.config['uid']
         if symbol['instrument_type'] == 'CE':
-            ce_symbol = Instruments.get_trading_symbol(symbol, uid)
+            ce_symbol = Instruments.get_key_for_quotes(symbol, uid)
             NiftyShortStraddle.CE_TICKERS[symbol['strike']] = ce_symbol
         else:
-            pe_symbol = Instruments.get_trading_symbol(symbol, uid)
+            pe_symbol = Instruments.get_key_for_quotes(symbol, uid)
             NiftyShortStraddle.PE_TICKERS[symbol['strike']] = pe_symbol
 
     @staticmethod
@@ -119,11 +122,11 @@ class NiftyShortStraddle:
             pe_symbol_dict = NiftyShortStraddle.get_symbol_dict('NIFTY', 'PE', float(combination[1]), expiry, 'NFO')
             if combination[0] not in NiftyShortStraddle.CE_TICKERS:
                 # ce_symbol_dict = {'name':'NIFTY', 'instrument_type':'CE', 'strike':float(combination[0]), 'expiry':expiry}
-                ce_symbol = Instruments.get_trading_symbol(ce_symbol_dict, uid)
+                ce_symbol = Instruments.get_key_for_quotes(ce_symbol_dict, uid)
             else:
                 ce_symbol = NiftyShortStraddle.CE_TICKERS[combination[0]]
             if combination[1] not in NiftyShortStraddle.PE_TICKERS:           
-                pe_symbol = Instruments.get_trading_symbol(pe_symbol_dict, uid)
+                pe_symbol = Instruments.get_key_for_quotes(pe_symbol_dict, uid)
             else:
                 pe_symbol = NiftyShortStraddle.PE_TICKERS[combination[1]]
     

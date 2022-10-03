@@ -117,6 +117,10 @@ def get_expiry(name, expiry_type, instrument_type):
         df = Instruments.instruments_list['jugaadtrader']
         expiry = df[(df['name'] == name) &
                     (df['instrument_type'] == instrument_type)]['expiry'].iloc[expiry_offset]
+    elif 'fyers' in Instruments.instruments_list:
+        df = Instruments.instruments_list['fyers']
+        expiry = df[(df['symbol'] == name) &
+                    (df['instrument_type'] == instrument_type)]['expiry'].iloc[expiry_offset]
     else:
         logging.info('Zerodha instruments list not available.')
         return

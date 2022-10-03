@@ -30,13 +30,14 @@ class ZerodhaTicker(BaseTicker):
 
     def start_ticker(self):
         try:
-            uid = BrokerController.broker_ticker_uid['zerodha']
+            uid = BrokerController.get_ticker_broker_uid('zerodha')
         except Exception as e:
             logging.exception(f'Not logged in to Zerodha ticker account due to {e}')
             return
         
-        access_token = BrokerController.broker_uid_access_token_map[uid]
-        api_key = uid['api_key']
+        uid_details = BrokerController.get_uid_details_uid(uid)
+        access_token = uid_details['access_token']
+        api_key = uid_details['api_key']
 
         ticker = KiteTicker(api_key, access_token)
         ticker.on_connect = self.on_connect

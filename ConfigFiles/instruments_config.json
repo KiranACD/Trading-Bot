@@ -8,11 +8,13 @@
     "location": "ConfigFiles/xts_instruments.pickle"
   },
   "jugaadtrader": {
-    "last_date_updated": "2022-09-27",
+    "last_date_updated": "2022-10-01",
     "location": "ConfigFiles/jugaadtrader_instruments.pickle"
   },
   "fyers": {
-    "last_date_updated": "2022-08-24",
-    "location": "ConfigFiles/jugaadtrader_instruments.pickle"
+    "last_date_updated": "2022-10-01",
+    "location": "ConfigFiles/fyers_instruments.pickle",
+    "equity_derivatives_url": "https://public.fyers.in/sym_details/NSE_FO.csv",
+    "equity_cash_url": "https://public.fyers.in/sym_details/NSE_CM.csv"
   }
 }
