@@ -2,7 +2,7 @@ import os
 import logging
 import time
 import json
-import datetime
+import threading
 from collections import defaultdict
 from PaperTrader.papertrader import PaperTrader
 
@@ -86,13 +86,14 @@ class TradeManager:
         elif ticker_broker_name == 'jugaadtrader':
             TradeManager.ticker = ZerodhaQuoteTicker().get_instance()
         
-        TradeManager.ticker.start_ticker()
+        threading.Thread(target=TradeManager.ticker.start_ticker).start()
+        print('Registering listener')
         TradeManager.ticker.register_listener(TradeManager.ticker_listener)
         if paper_trader:
             TradeManager.ticker.register_listener(PaperTrader.update_orders)
             logging.info('Initialized PaperTrader')
 
-        TradeManager.ticker_broker = server_config['ticker_broker']
+        TradeManager.ticker_broker = ticker_broker_name
         time.sleep(5)
 
         TradeManager.load_all_trades_from_file()
@@ -113,7 +114,7 @@ class TradeManager:
                 print()
             TradeManager.save_all_trades_to_file()
 
-            time.sleep(30)
+            time.sleep(10)
             logging.info('TradeManager: Main thread woke up...')
     
     @staticmethod
@@ -599,6 +600,7 @@ class TradeManager:
     def convert_json_to_trade(jsondata):
         trade = Trade(jsondata['trading_symbol'])
         trade.trade_id = jsondata['trade_id']
+        trade.ticker_symbol_dict = jsondata['ticker_symbol_dict']
         trade.broker = jsondata['broker']
         trade.uid = jsondata['uid']
         trade.strategy = jsondata['strategy']

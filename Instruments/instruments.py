@@ -133,6 +133,7 @@ class Instruments:
             return False
         df.columns = 'fy_token symbol_details exchange_instrument_type minimum_lot_size tick_size isin trading_session last_update_date expiry symbol_ticker exchange segment scrip_code symbol underlying_scrip_code strike option_type'.split()
         df['expiry'] = df['expiry'].apply(lambda x: datetime.datetime.fromtimestamp(x).date())
+        df = df.sort_values('expiry')
         df['instrument_type'] = df['symbol_details'].apply(lambda x: x.split()[-1])
         try:
             df2 = pd.read_csv(equity_cash_url, header=None)
@@ -225,8 +226,6 @@ class Instruments:
             try:
                 expiry = datetime.datetime.strptime(symbol['expiry'], '%d-%m-%Y')
                 expiry = expiry.date()
-                print(symbol)
-                print(expiry)
                 tradingsymbol = df[(df['symbol'] == symbol['name']) &
                                    (df['instrument_type'] == symbol['instrument_type']) &
                                    (df['expiry'] == expiry) &
@@ -292,6 +291,9 @@ class Instruments:
             return Instruments.get_zerodha_lot_size(symbol)
         elif uid_details['broker'] == 'jugaadtrader':
             return Instruments.get_jugaadtrader_lot_size(symbol)
+        elif uid_details['broker'] == 'fyers':
+            return Instruments.get_fyers_lot_size(symbol)
+            
     
     @staticmethod
     def get_zerodha_lot_size(symbol):
@@ -309,6 +311,15 @@ class Instruments:
             return df[df['tradingsymbol']==symbol]['lot_size'].iloc[0]
         except Exception as e:
             logging.exception(f'Jugaadtrader lot size not found for symbol: {symbol} due to: {e}')
+            return 0
+    
+    @staticmethod
+    def get_fyers_lot_size(symbol):
+        df = Instruments.instruments_list['fyers']
+        try:
+            return float(df[(df['symbol_ticker']==symbol)]['minimum_lot_size'].iloc[0])
+        except Exception as e:
+            logging.exception(f'Fyers lot size not found for symbol: {symbol} due to: {e}')
             return 0
     
     @staticmethod

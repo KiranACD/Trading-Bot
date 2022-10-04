@@ -1,5 +1,6 @@
 import logging
 import datetime
+import time
 import uuid
 from collections import defaultdict
 from Models.direction import Direction
@@ -55,7 +56,9 @@ class NiftyShortStraddleISL920rentry1330(BaseStrategy):
             pe_symbol = straddle['pe']['trading_symbol']
             logging.info('%s: ATMCESymbol: %s, ATMPESymbol: %s', self.get_name(), ce_symbol, pe_symbol)
             for user in TradeManager.users:
+                print(user.uid)
                 if self.get_name() in user.subscribed_strategies:
+                    print('Generating trades')
                     self.generate_trades(straddle, user)
             self.num_trades += 1
         elif self.num_trades < self.max_trades_per_day and now < self.reentry_time:
@@ -66,6 +69,7 @@ class NiftyShortStraddleISL920rentry1330(BaseStrategy):
             ce_symbol = straddle['ce']['trading_symbol']
             pe_symbol = straddle['pe']['trading_symbol']
             logging.info('%s: ATMCESymbol: %s, ATMPESymbol: %s', self.get_name(), ce_symbol, pe_symbol)
+            
             for user in TradeManager.users:
                 if self.get_name() in user.subscribed_strategies:
                     self.generate_trades(straddle, user)
@@ -94,6 +98,7 @@ class NiftyShortStraddleISL920rentry1330(BaseStrategy):
 
         symbol = symbol_dict['trading_symbol']
         ticker_symbol_dict = symbol_dict['symbol_dict']
+        print(ticker_symbol_dict)
         uid = user.uid
         new_straddle_id = straddle_id + '-' + uid
         trade = Trade(symbol)

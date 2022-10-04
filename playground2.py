@@ -229,14 +229,9 @@ for uid in users_uid:
 for broker in BrokerController.brokers:
     Instruments.fetch_instruments(broker)
 
-
-print(Instruments.instruments_list.keys())
 print('Instruments loaded')
 
 BankniftyShortStraddle.init_service()
-print(BankniftyShortStraddle.FUT_SYMBOL)
-print(BankniftyShortStraddle.CE_TICKERS)
-print(BankniftyShortStraddle.PE_TICKERS)
 straddle = BankniftyShortStraddle.get_straddle_combination()
 ce_symbol = straddle['ce']['trading_symbol']
 pe_symbol = straddle['pe']['trading_symbol']
@@ -244,25 +239,25 @@ pe_symbol = straddle['pe']['trading_symbol']
 straddle_combo_price = BankniftyShortStraddle.get_straddle_combo_price(ce_symbol, pe_symbol)
 print(straddle_combo_price)
 
-# ticker_broker_name = server_config['ticker_broker']
-# if ticker_broker_name == 'zerodha':
-#     ticker = ZerodhaTicker().get_instance()
-# elif ticker_broker_name == 'fyers':
-#     ticker = FyersTicker().get_instance()
-# elif ticker_broker_name == 'jugaadtrader':
-#     ticker = ZerodhaQuoteTicker().get_instance()
+ticker_broker_name = server_config['ticker_broker']
+if ticker_broker_name == 'zerodha':
+    ticker = ZerodhaTicker().get_instance()
+elif ticker_broker_name == 'fyers':
+    ticker = FyersTicker().get_instance()
+elif ticker_broker_name == 'jugaadtrader':
+    ticker = ZerodhaQuoteTicker().get_instance()
 
-# ticker.register_listener(print_ticks)
-# # ticker.start_ticker()
-# threading.Thread(target=ticker.start_ticker).start()
-# name = 'NIFTY'
-# instrument_type = 'FUT'
-# strike = 0
-# expiry = '27-10-2022'
-# # expiry = datetime.datetime.strptime(expiry, '%d-%m-%Y').date()
-# exchange = 'NSE'
-# ticker_symbol_dict = {'name':name, 'instrument_type':instrument_type, 'strike':strike, 'expiry':expiry, 'exchange':exchange}
-# ticker.register_symbols([ticker_symbol_dict], BrokerController.broker_ticker_uid[ticker_broker_name])
+ticker.register_listener(print_ticks)
+# ticker.start_ticker()
+threading.Thread(target=ticker.start_ticker).start()
+name = 'NIFTY'
+instrument_type = 'FUT'
+strike = 0
+expiry = '27-10-2022'
+# expiry = datetime.datetime.strptime(expiry, '%d-%m-%Y').date()
+exchange = 'NSE'
+ticker_symbol_dict = {'name':name, 'instrument_type':instrument_type, 'strike':strike, 'expiry':expiry, 'exchange':exchange}
+ticker.register_symbols([ticker_symbol_dict], BrokerController.broker_ticker_uid[ticker_broker_name])
 
 # df = Instruments.instruments_list['fyers']
 # symbol_ticker = df[(df['symbol'] == ticker_symbol_dict['name']) & 

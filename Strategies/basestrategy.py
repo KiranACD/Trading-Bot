@@ -20,6 +20,7 @@ class BaseStrategy:
         self.symbols = []     
         TradeManager.register_strategy(self)
         self.trades = TradeManager.get_all_trades_by_strategy(self.name)
+        
     
     def get_strategy_config(self):
         if not BaseStrategy.STRATEGY_CONFIG:
@@ -40,8 +41,6 @@ class BaseStrategy:
         self.start_timestamp = get_time_of_today(hour, minute, second)
         hour, minute, second = list(map(int, cfg[name]['stop_time'].split(':')))#datetime.datetime.strptime(cfg[name]['stop_time'], '%H:%M:%S')
         self.stop_timestamp = get_time_of_today(hour, minute, second)
-        print(self.start_timestamp)
-        print(self.stop_timestamp)
         hour, minute, second = list(map(int, cfg[name]['squareoff_time'].split(':')))
         self.squareoff_timestamp = get_time_of_today(hour, minute, second)#datetime.datetime.strptime(cfg[name]['squareoff_time'], '%H:%M:%S')
         # self.capital = cfg[name]['capital'] # Capital allocated to each uid
@@ -80,6 +79,7 @@ class BaseStrategy:
             lots = user.strategy_capital_map[trade.strategy]
             # lots = capital//self.capital_per_set
             lot_size = Instruments.get_lot_size(trade.trading_symbol, user.uid)
+        print('lots: ', lots, 'lot_size: ', lot_size)
         return lots, lot_size
         
     def get_quantity(self, user, trade):

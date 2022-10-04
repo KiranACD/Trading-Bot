@@ -69,10 +69,8 @@ class BankniftyShortStraddle:
             print('Error: ', e)
             logging.error(f'Error while getting {BankniftyShortStraddle.FUT_SYMBOL} quote. Unable to populate tickers.')
             return
-        print('price: ', underlying_price)
         strikes_list = BankniftyShortStraddle.get_strikes_list(underlying_price)
         expiry = get_expiry('BANKNIFTY','current', 'OPT')
-        print(expiry)
         for strike in strikes_list:
             symbol = BankniftyShortStraddle.get_symbol_dict('BANKNIFTY', 'CE', float(strike), expiry, 'NFO')
             # symbol = {'name':'NIFTY', 'instrument_type':'CE', 'expiry':expiry, 'strike':float(strike), 'exchange':'NFO'} 

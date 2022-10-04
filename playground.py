@@ -18,14 +18,6 @@ from Trademanagement.trademanager import TradeManager
 # from Ordermanagement.zerodhaordermanager import ZerodhaOrderManager
 from Config.config import get_users, get_server_config
 
-# path1 = 'ConfigFiles/'
-# path2 = 'trades'
-
-# print(os.path.join(path1, path2))
-
-# uid_users = get_users()
-# print(uid_users)
-
 def init_logging(filepath):
     format = '%(asctime)s: %(message)s'
     logging.basicConfig(filename=filepath, format=format, level = logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
@@ -35,9 +27,6 @@ log_file_dir = server_config['logfiledir']
 
 init_logging(log_file_dir + '/app.log')
 
-# NiftyShortStraddle.init_service()
-# NiftyShortStraddleISL920.get_instance().run()
-
 logging.info('Starting Algo...')
 tm = threading.Thread(target=TradeManager.run)
 tm.start()
@@ -46,8 +35,15 @@ time.sleep(5)
 NiftyShortStraddle.init_service()
 BankniftyShortStraddle.init_service()
 
+while len(TradeManager.users) == 0:
+    print('Users not yet available.')
+    time.sleep(5)
+    continue
+
+print('Starting strategy')
 # threading.Thread(target=NiftyShortStraddleISL920.get_instance().run).start()
 # threading.Thread(target=BankniftyStraddleAdjust.get_instance().run).start()
+
 threading.Thread(target=NiftyShortStraddleISL920rentry1330.get_instance().run).start()
 
 

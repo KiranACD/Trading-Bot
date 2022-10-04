@@ -43,7 +43,7 @@ class FyersTicker(BaseTicker):
         ticker = ws.FyersSocket(access_token=access_token_webscoket, log_path=log_file_path)
         ticker.websocket_data = self.on_message
         self.ticker = ticker
-        # self.ticker.keep_running()
+        self.ticker.keep_running()
     
     def register_symbols(self, symbols, uid):
         subscription_symbols = []
@@ -61,15 +61,13 @@ class FyersTicker(BaseTicker):
     def on_message(self, msg):
         ticks = []
         if msg:
-            # print(f"Custom:{msg}")
-            print(f'Type:{type(msg)}')
+            print(f"Custom:{msg}")
             for btick in msg:
                 # print(btick)
                 tick = TickData(btick['symbol'])
-                print(tick)
                 threading.Thread(target=tick.add_fyers_data,args=(btick,)).start()
+                print(tick)
                 ticks.append(tick)
-        print('here')
         threading.Thread(target=self.on_new_ticks,args=(ticks,)).start()
     
 

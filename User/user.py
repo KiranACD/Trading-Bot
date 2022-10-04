@@ -1,3 +1,4 @@
+import logging
 from BrokerController.brokercontroller import BrokerController 
 
 class User:
@@ -26,14 +27,13 @@ class User:
         for strategy, cap_allocation in zip(self.subscribed_strategies, self.strategy_capital_allocation):
             self.strategy_capital_map[strategy] = cap_allocation
         self.capital = self.uid_details['capital']
-        print(self.strategy_capital_map)
 
 
     def login(self):
         BrokerController.handle_broker_login(self.uid_details)
         self.get_user_details()
         self.broker_handle = BrokerController.brokerhandle_uid_details_map[self.uid_details['uid']]
-    
+
     def test_broker_handle(self):
         if self.broker == 'zerodha':
             try:
@@ -47,4 +47,11 @@ class User:
                 return True
             except:
                 return False
+        elif self.broker == 'fyers':
+            try:
+                print(self.broker_handle.get_profile())
+                return True
+            except:
+                return False
+        
 
