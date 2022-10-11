@@ -25,5 +25,5 @@ class BaseOrderManager:
     def convert_to_broker_order_type(self, order_type):
         return order_type
 
-    def convert_to_broker_direction(self, direction):
+    def convert_to_broker_direction_type(self, direction):
         return direction

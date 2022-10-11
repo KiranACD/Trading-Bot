@@ -5,7 +5,7 @@ import configparser
 from collections import defaultdict
 from Instruments.instruments import Instruments
 
-from Models.producttype import ZerodhaProductType, FyersProductType
+from Models.producttype import ProductType
 from Models.quote import Quote
 from Models.direction import Direction
 from Trademanagement.trademanager import TradeManager
@@ -13,7 +13,6 @@ from Utils.utils import wait_till_market_opens, is_market_closed_for_day, get_ma
 
 class BaseStrategy:
     STRATEGY_CONFIG = None
-    PRODUCT_TYPE = {'zerodha':{'MIS':ZerodhaProductType.MIS, 'CNC':ZerodhaProductType.CNC, 'NRML':ZerodhaProductType.NRML}}
     def __init__(self, name):
         self.name = name
         self.get_strategy_config()
@@ -21,7 +20,6 @@ class BaseStrategy:
         TradeManager.register_strategy(self)
         self.trades = TradeManager.get_all_trades_by_strategy(self.name)
         
-    
     def get_strategy_config(self):
         if not BaseStrategy.STRATEGY_CONFIG:
             cfg = configparser.ConfigParser()
@@ -31,7 +29,7 @@ class BaseStrategy:
             cfg = BaseStrategy.STRATEGY_CONFIG
         name = self.get_name()
         self.enabled = cfg[name]['enabled']
-        self.product_type = cfg[name]['product_type'] # intraday / positional
+        self.product_type = ProductType.get_product_type(cfg[name]['product_type']) # intraday / positional
         try:
             self.symbols_to_subscribe = cfg[name]['symbols_to_subscribe'].replace(' ', '').split(',')
             self.symbols_to_subscribe = [symbol for symbol in self.symbols_to_subscribe if symbol]

@@ -3,7 +3,7 @@ import datetime
 import uuid
 from collections import defaultdict
 from Models.direction import Direction
-from Models.producttype import ZerodhaProductType, FyersProductType
+from Models.producttype import ProductType
 from Strategies.niftyshortstraddle import NiftyShortStraddle
 from Strategies.basestrategy import BaseStrategy
 from Utils.utils import get_epoch, round_to_nse_price

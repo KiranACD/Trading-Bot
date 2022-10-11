@@ -122,7 +122,7 @@ class ZerodhaOrderManager(BaseOrderManager):
 
         logging.info('%s: %d orders updated with broker order details', self.broker, num_orders_updated)
 
-    def convertToBrokerProductType(self, product_type):
+    def convert_to_broker_product_type(self, product_type):
         kite = self.broker_handle
         if product_type == ZerodhaProductType.MIS:
             return kite.PRODUCT_MIS
@@ -132,7 +132,7 @@ class ZerodhaOrderManager(BaseOrderManager):
             return kite.PRODUCT_CNC
         return None 
 
-    def convertToBrokerOrderType(self, order_type):
+    def convert_to_broker_order_type(self, order_type):
         kite = self.broker_handle
         if order_type == OrderType.LIMIT:
             return kite.ORDER_TYPE_LIMIT
@@ -144,7 +144,7 @@ class ZerodhaOrderManager(BaseOrderManager):
             return kite.ORDER_TYPE_SL
         return None
 
-    def convertToBrokerDirection(self, direction):
+    def convert_to_broker_direction_type(self, direction):
         kite = self.broker_handle
         if direction == Direction.LONG:
             return kite.TRANSACTION_TYPE_BUY
